@@ -1,0 +1,6 @@
+dist
+node_modules
+sourcemap-test
+
+.vscode
+./src/create-sourcemap-files.ts
