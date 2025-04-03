@@ -65,7 +65,7 @@ export default function qingkuaiPlugin(): Plugin {
 
                 let virtualFileName: string
                 const compileRes = compileResultCache.get(fileId)!
-                const style = compileRes.inputDescriptor.style[index]
+                const style = compileRes.inputDescriptor.styles[index]
 
                 // create a relative and not existing file name
                 while (true) {
@@ -129,7 +129,7 @@ export default function qingkuaiPlugin(): Plugin {
             compileResultCache.set(id, compileRes)
 
             const compiledCodeArr = [compileRes.code]
-            compileRes.inputDescriptor.style.forEach((_, index) => {
+            compileRes.inputDescriptor.styles.forEach((_, index) => {
                 compiledCodeArr.push(`import "virtual:[${index}]${id}.css?${Date.now()}"`)
             })
 
@@ -184,7 +184,7 @@ export default function qingkuaiPlugin(): Plugin {
     function getQingkuaiConfiguration(id: string) {
         let config: QingkuaiConfiguration = {
             insertTipComments: true,
-            exposeDestruction: isDev,
+            exposeDestructions: isDev,
             exposeDependencies: isDev,
             resolveImportExtension: true,
             reserveHtmlComments: "development"

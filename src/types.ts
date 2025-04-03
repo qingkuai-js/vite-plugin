@@ -10,7 +10,7 @@ export interface SourceMap {
 }
 
 export type QingkuaiConfiguration = Partial<{
-    exposeDestruction: boolean
+    exposeDestructions: boolean
     exposeDependencies: boolean
     insertTipComments: boolean
     resolveImportExtension: boolean
