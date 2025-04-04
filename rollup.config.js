@@ -6,7 +6,10 @@ export default rollup.defineConfig(() => {
         external: [
             "vite",
             "postcss",
+            "node:fs",
             "node:path",
+            "node:crypto",
+            "source-map-js",
             "merge-source-map",
             "qingkuai/compiler",
             "@ampproject/remapping",

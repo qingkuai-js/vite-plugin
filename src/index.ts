@@ -21,7 +21,10 @@ export default function qingkuaiPlugin(): Plugin {
     const parseFailedConfigFiles: string[] = []
     const compileResultCache = new Map<string, CompileResult>()
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
+
+    const confIdentifierRE = /__qk_expose_(?:dependencies|destructions)__/g
     const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
+    const qingkuaiPackageRE = /node_modules\/qingkuai\/dist\/esm\/(?:chunks|runtime)\/\w+\.js$/
 
     return {
         name: "qingkuai-compiler",
@@ -76,7 +79,15 @@ export default function qingkuaiPlugin(): Plugin {
                     }
                 }
 
-                const preprocessRes = await preprocessCSS(style.code, virtualFileName, viteConfig)
+                const preprocessRes = await preprocessCSS(style.code, virtualFileName, {
+                    ...viteConfig,
+                    css: {
+                        ...viteConfig.css,
+                        postcss: {
+                            from: virtualFileName
+                        }
+                    }
+                })
                 if (!cssSourcemap) {
                     return preprocessRes.code
                 }
@@ -109,11 +120,24 @@ export default function qingkuaiPlugin(): Plugin {
         },
 
         async transform(src, id) {
+            const qingkuaiConfig = getQingkuaiConfiguration(id)
             if (!id.endsWith(".qk")) {
+                if (!isDev && qingkuaiPackageRE.test(id)) {
+                    const ret = src.replace(confIdentifierRE, s => {
+                        switch (s) {
+                            case "__qk_expose_dependencies__":
+                                return JSON.stringify(!!qingkuaiConfig.exposeDependencies)
+                            case "__qk_expose_destructions__":
+                                return JSON.stringify(!!qingkuaiConfig.exposeDestructions)
+                            default:
+                                return s
+                        }
+                    })
+                    return ret
+                }
                 return
             }
 
-            const qingkuaiConfig = getQingkuaiConfiguration(id)
             const compileRes = compile(src, {
                 sourcemap,
                 debug: isDev,
