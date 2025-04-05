@@ -93,12 +93,12 @@ export default function qingkuaiPlugin(): Plugin {
                     return preprocessRes.code
                 }
 
-                const assertedPreprocessMap = preprocessRes.map as SourceMap
+                const assertedPreprocessMap = preprocessRes.map as SourceMap | undefined
                 const attachScopeResult = await attachScopeForStyleSelectors(
                     preprocessRes.code,
                     compileRes.hashId,
-                    assertedPreprocessMap,
-                    virtualFileName
+                    virtualFileName,
+                    assertedPreprocessMap
                 )
                 const offsetMappings = encode(
                     offsetSourceMap(
@@ -113,8 +113,8 @@ export default function qingkuaiPlugin(): Plugin {
                     map: {
                         version: 3,
                         mappings: offsetMappings,
-                        names: assertedPreprocessMap.names,
-                        sources: [...assertedPreprocessMap.sources.slice(0, -1), fileId]
+                        names: assertedPreprocessMap?.names || [],
+                        sources: [...(assertedPreprocessMap ? assertedPreprocessMap.sources.slice(0, -1) : []), fileId]
                     }
                 }
             }

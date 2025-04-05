@@ -4,13 +4,18 @@ import postcss from "postcss"
 import { getSourceFile } from "./sourcemap"
 import selectorParser from "postcss-selector-parser"
 
-export async function attachScopeForStyleSelectors(code: string, hash: string, map: SourceMap, sourceFile: string) {
+export async function attachScopeForStyleSelectors(
+    code: string,
+    hash: string,
+    sourceFile: string,
+    map: SourceMap | undefined
+) {
     const processor = postcss([
         {
             postcssPlugin: "postcss-attach-scope-qingkuai",
             Rule(rule) {
                 const { line, column } = rule.source!.start!
-                if (getSourceFile(map, line, column) !== sourceFile) {
+                if (map && getSourceFile(map, line, column) !== sourceFile) {
                     return
                 }
 
@@ -37,7 +42,7 @@ export async function attachScopeForStyleSelectors(code: string, hash: string, m
     ])
 
     const ret = await processor.process(code, {
-        from: map.file,
+        from: sourceFile,
         map: {
             prev: map,
             annotation: false
