@@ -22,9 +22,10 @@ export default function qingkuaiPlugin(): Plugin {
     const compileResultCache = new Map<string, CompileResult>()
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
 
+    const qingkuaiPackageServeRE = /node_modules\/\.vite\/deps\/chunk.*$/
     const confIdentifierRE = /__qk_expose_(?:dependencies|destructions)__/g
     const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
-    const qingkuaiPackageRE = /node_modules\/qingkuai\/dist\/esm\/(?:chunks|runtime)\/\w+\.js$/
+    const qingkuaiPackageBuildRE = /node_modules\/qingkuai\/dist\/esm\/(?:chunks|runtime)\/\w+\.js$/
 
     return {
         name: "qingkuai-compiler",
@@ -122,7 +123,7 @@ export default function qingkuaiPlugin(): Plugin {
         async transform(src, id) {
             const qingkuaiConfig = getQingkuaiConfiguration(id)
             if (!id.endsWith(".qk")) {
-                if (!isDev && qingkuaiPackageRE.test(id)) {
+                if ((isDev && qingkuaiPackageServeRE.test(id)) || (!isDev && qingkuaiPackageBuildRE.test(id))) {
                     const ret = src.replace(confIdentifierRE, s => {
                         switch (s) {
                             case "__qk_expose_dependencies__":
