@@ -1,7 +1,9 @@
 import * as rollup from "rollup"
+import dts from "rollup-plugin-dts"
 import esbuild from "rollup-plugin-esbuild"
 
-export default rollup.defineConfig(() => {
+export default rollup.defineConfig(commentLineArgs => {
+    const isWatchMode = commentLineArgs.watch
     const inputOptions = {
         external: [
             "vite",
@@ -31,7 +33,7 @@ export default rollup.defineConfig(() => {
         ]
     }
 
-    return [
+    const result = [
         inputOptions,
         Object.assign({}, inputOptions, {
             output: {
@@ -41,4 +43,17 @@ export default rollup.defineConfig(() => {
             }
         })
     ]
+    if (!isWatchMode) {
+        result.push({
+            input: `./dist/temp-type/index.d.ts`,
+            output: {
+                format: "es",
+                inlineDynamicImports: true,
+                file: `dist/index.d.ts`
+            },
+            plugins: [dts()]
+        })
+    }
+
+    return result
 })

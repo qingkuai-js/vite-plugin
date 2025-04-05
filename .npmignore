@@ -1,0 +1,12 @@
+.DS_Store
+.gitignore
+.prettierrc
+
+src
+node_modules
+sourcemap-test
+
+tsconfig.json
+pnpm-lock.yaml
+rollup.config.js
+dist/index.js.map
