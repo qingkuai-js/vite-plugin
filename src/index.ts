@@ -1,6 +1,6 @@
 import type { CompileResult } from "qingkuai/compiler"
 import type { QingkuaiConfiguration, SourceMap } from "./types"
-import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
+import type { PluginOption, ResolvedConfig, ViteDevServer } from "vite"
 
 import { findFilesByName } from "./util"
 import { randomBytes } from "node:crypto"
@@ -12,7 +12,7 @@ import { basename, dirname, extname } from "node:path"
 import { attachScopeForStyleSelectors } from "./scope"
 import { transformWithEsbuild, preprocessCSS } from "vite"
 
-export default function qingkuaiPlugin(): Plugin {
+export default function qingkuaiPlugin(): PluginOption {
     let isDev: boolean
     let sourcemap: boolean
     let cssSourcemap: boolean
@@ -22,10 +22,10 @@ export default function qingkuaiPlugin(): Plugin {
     const compileResultCache = new Map<string, CompileResult>()
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
 
-    const qingkuaiPackageServeRE = /node_modules\/\.vite\/deps\/chunk.*$/
+    const qingkuaiPackageServeRE = /node_modules\/\.vite\/deps\/chunk-.*$/
     const confIdentifierRE = /__qk_expose_(?:dependencies|destructions)__/g
     const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
-    const qingkuaiPackageBuildRE = /node_modules\/qingkuai\/dist\/esm\/(?:chunks|runtime)\/\w+\.js$/
+    const qingkuaiPackageBuildRE = /(?:node_modules)?\/qingkuai\/dist\/esm\/(?:chunks|runtime)\/\w+\.js$/
 
     return {
         name: "qingkuai-compiler",
@@ -123,7 +123,7 @@ export default function qingkuaiPlugin(): Plugin {
         async transform(src, id) {
             const qingkuaiConfig = getQingkuaiConfiguration(id)
             if (!id.endsWith(".qk")) {
-                if ((isDev && qingkuaiPackageServeRE.test(id)) || (!isDev && qingkuaiPackageBuildRE.test(id))) {
+                if (qingkuaiPackageServeRE.test(id) || qingkuaiPackageBuildRE.test(id)) {
                     const ret = src.replace(confIdentifierRE, s => {
                         switch (s) {
                             case "__qk_expose_dependencies__":
