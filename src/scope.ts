@@ -13,6 +13,9 @@ export async function attachScopeForStyleSelectors(
         {
             postcssPlugin: "postcss-attach-scope-qingkuai",
             Rule(rule) {
+                if (rule.parent && "name" in rule?.parent && rule.parent.name === "keyframes") {
+                    return
+                }
                 rule.selector = selectorParser(selectors => {
                     selectors.each(selector => {
                         const index = selector.nodes.findLastIndex(({ type }) => {
