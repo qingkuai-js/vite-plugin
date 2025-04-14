@@ -28,8 +28,8 @@ importers:
         specifier: ^11.3.0
         version: 11.3.0
       qingkuai:
-        specifier: ^1.0.24
-        version: 1.0.28
+        specifier: ^1.0.37
+        version: 1.0.37
       rimraf:
         specifier: ^6.0.1
         version: 6.0.1
@@ -506,8 +506,8 @@ packages:
     resolution: {integrity: sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  qingkuai@1.0.28:
-    resolution: {integrity: sha512-wRiS5mFMS1O820cSsKUmW+zpQOXGSsVvyYm5LfK2mSBtXgVQCkXNWmjQ22sS57WUUybX2Jb0g2dVgntE/3TZMQ==}
+  qingkuai@1.0.37:
+    resolution: {integrity: sha512-sXDFDxoaMhnG0k8q9Oq2j4GlpohtzoUGMY1YV/HxX0Zqoq8Rlv5w44AYIPYKwVVaM2eXplT0seV6O0PvIpd95Q==}
     engines: {node: '>=14'}
 
   resolve-pkg-maps@1.0.0:
@@ -982,7 +982,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  qingkuai@1.0.28:
+  qingkuai@1.0.37:
     dependencies:
       '@babel/parser': 7.27.0
       '@jridgewell/sourcemap-codec': 1.5.0

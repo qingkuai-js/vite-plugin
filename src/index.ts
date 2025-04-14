@@ -108,7 +108,6 @@ export default function qingkuaiPlugin(): PluginOption {
                         style.loc.start.column - 1
                     )
                 )
-                console.log(attachScopeResult.code)
                 return {
                     code: attachScopeResult.code,
                     map: {
