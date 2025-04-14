@@ -2,7 +2,7 @@
     "name": "vite-plugin-qingkuai",
     "author": "mlgq",
     "license": "MIT",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "type": "module",
     "keywords": [
         "vite",
@@ -39,7 +39,6 @@
     "dependencies": {
         "@jridgewell/sourcemap-codec": "^1.5.0",
         "postcss": "^8.5.3",
-        "postcss-selector-parser": "^7.1.0",
-        "source-map-js": "^1.2.1"
+        "postcss-selector-parser": "^7.1.0"
     }
 }

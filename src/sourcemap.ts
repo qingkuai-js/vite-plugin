@@ -1,7 +1,5 @@
-import type { SourceMap } from "./types"
 import type { SourceMapMappings } from "@jridgewell/sourcemap-codec"
 
-import { SourceMapConsumer } from "source-map-js"
 import { decode } from "@jridgewell/sourcemap-codec"
 
 export function offsetSourceMap(
@@ -23,16 +21,4 @@ export function offsetSourceMap(
             return segment
         })
     })
-}
-
-export function getSourceFile(sourcemap: SourceMap, line: number, column: number) {
-    const consumer = new SourceMapConsumer({
-        ...sourcemap,
-        version: sourcemap.version.toString()
-    })
-
-    return consumer.originalPositionFor({
-        line: line,
-        column: column
-    }).source
 }

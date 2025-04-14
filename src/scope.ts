@@ -1,7 +1,6 @@
 import type { SourceMap } from "./types"
 
 import postcss from "postcss"
-import { getSourceFile } from "./sourcemap"
 import selectorParser from "postcss-selector-parser"
 
 export async function attachScopeForStyleSelectors(
@@ -14,11 +13,6 @@ export async function attachScopeForStyleSelectors(
         {
             postcssPlugin: "postcss-attach-scope-qingkuai",
             Rule(rule) {
-                const { line, column } = rule.source!.start!
-                if (map && getSourceFile(map, line, column) !== sourceFile) {
-                    return
-                }
-
                 rule.selector = selectorParser(selectors => {
                     selectors.each(selector => {
                         const index = selector.nodes.findLastIndex(({ type }) => {

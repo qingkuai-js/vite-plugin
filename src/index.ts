@@ -8,9 +8,9 @@ import { offsetSourceMap } from "./sourcemap"
 import { compile, util } from "qingkuai/compiler"
 import { existsSync, readFileSync } from "node:fs"
 import { encode } from "@jridgewell/sourcemap-codec"
-import { basename, dirname, extname } from "node:path"
 import { attachScopeForStyleSelectors } from "./scope"
 import { transformWithEsbuild, preprocessCSS } from "vite"
+import { basename, dirname, extname, join as pathJoin } from "node:path"
 
 export default function qingkuaiPlugin(): PluginOption {
     let isDev: boolean
@@ -56,7 +56,7 @@ export default function qingkuaiPlugin(): PluginOption {
             }
             if (importer?.endsWith(".qk") && !extname(id)) {
                 const qingkuaiConfig = getQingkuaiConfiguration(id)
-                return id + (qingkuaiConfig.resolveImportExtension ? ".qk" : "")
+                return pathJoin(dirname(importer), id + (qingkuaiConfig.resolveImportExtension ? ".qk" : ""))
             }
         },
 

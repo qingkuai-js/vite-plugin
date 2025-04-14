@@ -17,9 +17,6 @@ importers:
       postcss-selector-parser:
         specifier: ^7.1.0
         version: 7.1.0
-      source-map-js:
-        specifier: ^1.2.1
-        version: 1.2.1
     devDependencies:
       '@types/fs-extra':
         specifier: ^11.0.4
