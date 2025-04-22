@@ -13,6 +13,7 @@ export default rollup.defineConfig(commentLineArgs => {
             "node:crypto",
             "source-map-js",
             "merge-source-map",
+            "lines-and-columns",
             "qingkuai/compiler",
             "@ampproject/remapping",
             "postcss-selector-parser",

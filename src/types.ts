@@ -17,3 +17,11 @@ export type QingkuaiConfiguration = Partial<{
     convenientDerivedDeclaration: boolean
     reserveHtmlComments: "all" | "never" | "development" | "production"
 }>
+
+export interface PostcssPluginError {
+    message: string
+    loc?: {
+        line: number
+        column: number
+    }
+}

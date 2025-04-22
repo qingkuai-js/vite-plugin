@@ -4,12 +4,13 @@ import type { PluginOption, ResolvedConfig, ViteDevServer } from "vite"
 
 import { findFilesByName } from "./util"
 import { randomBytes } from "node:crypto"
-import { offsetSourceMap } from "./sourcemap"
 import { compile, util } from "qingkuai/compiler"
 import { existsSync, readFileSync } from "node:fs"
+import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { attachScopeForStyleSelectors } from "./scope"
 import { transformWithEsbuild, preprocessCSS } from "vite"
+import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 import { basename, dirname, extname, join as pathJoin } from "node:path"
 
 export default function qingkuaiPlugin(): PluginOption {
@@ -58,6 +59,7 @@ export default function qingkuaiPlugin(): PluginOption {
                 const qingkuaiConfig = getQingkuaiConfiguration(id)
                 return pathJoin(dirname(importer), id + (qingkuaiConfig.resolveImportExtension ? ".qk" : ""))
             }
+            return id
         },
 
         async load(id) {
@@ -108,6 +110,31 @@ export default function qingkuaiPlugin(): PluginOption {
                         style.loc.start.column - 1
                     )
                 )
+                if (attachScopeResult.error) {
+                    if (!attachScopeResult.error.loc) {
+                        this.error(attachScopeResult.error.message)
+                    } else {
+                        const preprocessedPosition = await getOriginalPosition(
+                            assertedPreprocessMap,
+                            attachScopeResult.error.loc.line,
+                            attachScopeResult.error.loc.column
+                        )
+                        const preprocessedIndex =
+                            new LinesAndColumns(style.code).indexForLocation({
+                                line: preprocessedPosition.line - 1,
+                                column: preprocessedPosition.column
+                            }) || 0
+                        const position = compileRes.inputDescriptor.positions[style.loc.start.index + preprocessedIndex]
+                        this.error({
+                            message: attachScopeResult.error.message,
+                            loc: {
+                                file: fileId,
+                                line: position.line,
+                                column: position.column
+                            }
+                        })
+                    }
+                }
                 return {
                     code: attachScopeResult.code,
                     map: {
@@ -139,69 +166,73 @@ export default function qingkuaiPlugin(): PluginOption {
                 return
             }
 
-            const compileRes = compile(src, {
-                sourcemap,
-                debug: isDev,
-                hashId: compileResultCache.get(id)?.hashId || undefined,
-                reserveTemplateComment: getReserveHtmlComments(qingkuaiConfig),
-                componentName: util.kebab2Camel(basename(id, extname(id)), true)
-            })
-            compileRes.messages.forEach(({ type, value: warning }) => {
-                if (type === "warning") {
-                    this.warn(warning.message)
+            try {
+                const compileRes = compile(src, {
+                    sourcemap,
+                    debug: isDev,
+                    hashId: compileResultCache.get(id)?.hashId || undefined,
+                    reserveTemplateComment: getReserveHtmlComments(qingkuaiConfig),
+                    componentName: util.kebab2Camel(basename(id, extname(id)), true)
+                })
+                compileRes.messages.forEach(({ type, value: warning }) => {
+                    if (type === "warning") {
+                        this.warn(warning.message)
+                    }
+                })
+                compileResultCache.set(id, compileRes)
+
+                const compiledCodeArr = [compileRes.code]
+                compileRes.inputDescriptor.styles.forEach((_, index) => {
+                    compiledCodeArr.push(`import "virtual:[${index}]${id}.css?${Date.now()}"`)
+                })
+
+                const baseMap: any = {
+                    version: 3,
+                    sources: [id],
+                    sourcesContent: [src]
                 }
-            })
-            compileResultCache.set(id, compileRes)
+                const compiledCode = compiledCodeArr.join("\n")
+                if (!compileRes.inputDescriptor.script.isTS) {
+                    if (!sourcemap) {
+                        return compiledCode
+                    }
+                    return {
+                        code: compiledCode,
+                        map: Object.assign(baseMap, {
+                            mappings: compileRes.mappings
+                        })
+                    }
+                }
 
-            const compiledCodeArr = [compileRes.code]
-            compileRes.inputDescriptor.styles.forEach((_, index) => {
-                compiledCodeArr.push(`import "virtual:[${index}]${id}.css?${Date.now()}"`)
-            })
+                const esBuildCompileRes = await transformWithEsbuild(
+                    compiledCode,
+                    id,
+                    {
+                        sourcemap,
+                        loader: "ts",
+                        target: "esnext"
+                    },
+                    sourcemap
+                        ? {
+                              version: 3,
+                              sources: [id],
+                              sourcesContent: [src],
+                              mappings: compileRes.mappings
+                          }
+                        : undefined
+                )
 
-            const baseMap: any = {
-                version: 3,
-                sources: [id],
-                sourcesContent: [src]
-            }
-            const compiledCode = compiledCodeArr.join("\n")
-            if (!compileRes.inputDescriptor.script.isTS) {
                 if (!sourcemap) {
-                    return compiledCode
+                    return esBuildCompileRes.code
                 }
                 return {
-                    code: compiledCode,
+                    code: esBuildCompileRes.code,
                     map: Object.assign(baseMap, {
-                        mappings: compileRes.mappings
+                        mappings: esBuildCompileRes.map.mappings
                     })
                 }
-            }
-
-            const esBuildCompileRes = await transformWithEsbuild(
-                compiledCode,
-                id,
-                {
-                    sourcemap,
-                    loader: "ts",
-                    target: "esnext"
-                },
-                sourcemap
-                    ? {
-                          version: 3,
-                          sources: [id],
-                          sourcesContent: [src],
-                          mappings: compileRes.mappings
-                      }
-                    : undefined
-            )
-
-            if (!sourcemap) {
-                return esBuildCompileRes.code
-            }
-            return {
-                code: esBuildCompileRes.code,
-                map: Object.assign(baseMap, {
-                    mappings: esBuildCompileRes.map.mappings
-                })
+            } catch (err: any) {
+                ;(err.pos = err.loc.start.index), this.error(err)
             }
         }
     }

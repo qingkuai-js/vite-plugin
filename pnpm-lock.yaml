@@ -11,12 +11,18 @@ importers:
       '@jridgewell/sourcemap-codec':
         specifier: ^1.5.0
         version: 1.5.0
+      lines-and-columns:
+        specifier: ^2.0.4
+        version: 2.0.4
       postcss:
         specifier: ^8.5.3
         version: 8.5.3
       postcss-selector-parser:
         specifier: ^7.1.0
         version: 7.1.0
+      source-map-js:
+        specifier: ^1.2.1
+        version: 1.2.1
     devDependencies:
       '@types/fs-extra':
         specifier: ^11.0.4
@@ -28,8 +34,8 @@ importers:
         specifier: ^11.3.0
         version: 11.3.0
       qingkuai:
-        specifier: ^1.0.41
-        version: 1.0.41
+        specifier: ^1.0.42
+        version: 1.0.42
       rimraf:
         specifier: ^6.0.1
         version: 6.0.1
@@ -454,6 +460,10 @@ packages:
   jsonfile@6.1.0:
     resolution: {integrity: sha512-5dgndWOriYSm5cnYaJNhalLNDKOqFwyDB/rr1E9ZsGciGvKPs8R2xYGCacuf3z6K1YKDz182fd+fY3cn3pMqXQ==}
 
+  lines-and-columns@2.0.4:
+    resolution: {integrity: sha512-wM1+Z03eypVAVUCE7QdSqpVIvelbOakn1M0bPDoA4SGWPx3sNDVUiMo3L6To6WWGClB7VyXnhQ4Sn7gxiJbE6A==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
   lru-cache@11.1.0:
     resolution: {integrity: sha512-QIXZUBJUx+2zHUdQujWejBkcD9+cs94tLn0+YL8UrCh+D5sCXZ4c7LaEH48pNwRY3MLDgqUFyhlCyjJPf1WP0A==}
     engines: {node: 20 || >=22}
@@ -506,8 +516,8 @@ packages:
     resolution: {integrity: sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  qingkuai@1.0.41:
-    resolution: {integrity: sha512-1BrgV/0HzVOuNEuimM+pz3z00xVg4wkuAn8qERBMue5OhEBK/THf9gQk7livzBmddbbU0g8vc4dUn6/RL3hJ5Q==}
+  qingkuai@1.0.42:
+    resolution: {integrity: sha512-JI+PCYDPBQ1X3yKaAqmG1Rq+eMnGe89cbHUaQe2UJ/TdXlRTUFrnddtT0zSy1VrTFUxRrR1hAXL3AXeztw04ng==}
 
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
@@ -939,6 +949,8 @@ snapshots:
     optionalDependencies:
       graceful-fs: 4.2.11
 
+  lines-and-columns@2.0.4: {}
+
   lru-cache@11.1.0: {}
 
   magic-string@0.30.17:
@@ -981,7 +993,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  qingkuai@1.0.41:
+  qingkuai@1.0.42:
     dependencies:
       '@babel/parser': 7.27.0
       '@jridgewell/sourcemap-codec': 1.5.0
