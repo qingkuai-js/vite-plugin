@@ -10,3 +10,4 @@ tsconfig.json
 pnpm-lock.yaml
 rollup.config.js
 dist/index.js.map
+vite-plugin-qingkuai-*.tgz

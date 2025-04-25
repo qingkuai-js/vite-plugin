@@ -1,7 +1,6 @@
 import type { PostcssPluginError, SourceMap } from "./types"
 
 import postcss from "postcss"
-import { commonMessage } from "qingkuai/compiler"
 import selectorParser from "postcss-selector-parser"
 
 export async function attachScopeForStyleSelectors(
@@ -11,6 +10,11 @@ export async function attachScopeForStyleSelectors(
     map: SourceMap | undefined
 ) {
     let error: PostcssPluginError | undefined
+    const hashAttribute = selectorParser.attribute({
+        attribute: `qk-${hash}`,
+        value: undefined,
+        raws: {}
+    })
     const processor = postcss([
         {
             postcssPlugin: "postcss-attach-scope-qingkuai",
@@ -20,31 +24,15 @@ export async function attachScopeForStyleSelectors(
                 }
                 rule.selector = selectorParser(selectors => {
                     selectors.each(selector => {
-                        const scopePseudoSelectors = selector.nodes.filter(
-                            node => node.type === "pseudo" && node.value === ":scope"
-                        ) as selectorParser.Pseudo[]
-                        if (scopePseudoSelectors.length) {
-                            if (scopePseudoSelectors.length > 1) {
-                                error = {
-                                    loc: scopePseudoSelectors[1].source?.start,
-                                    message: commonMessage.DuplicateScopePseudo[1]()
-                                }
-                            } else {
-                                const fistScopePseudo = scopePseudoSelectors[0]
-                                if (!fistScopePseudo.nodes[0]?.toString()) {
-                                    error = {
-                                        loc: fistScopePseudo?.source?.start,
-                                        message: commonMessage.NoParameterForScopePseudo[1]()
-                                    }
-                                }
-                                if (fistScopePseudo.nodes.length > 1) {
-                                    error = {
-                                        loc: fistScopePseudo?.source?.start,
-                                        message: commonMessage.TooManyParamaterForScopePseudo[1]()
-                                    }
-                                }
-                                fistScopePseudo.nodes[0] && (selector = fistScopePseudo.nodes[0])
+                        let usedScopeAttribute = false
+                        for (let i = 0; i < selector.nodes.length; i++) {
+                            const item = selector.nodes[i]
+                            if (item.type === "attribute" && item.attribute === "qk-scope") {
+                                ;[usedScopeAttribute, selector.nodes[i]] = [true, hashAttribute]
                             }
+                        }
+                        if (usedScopeAttribute) {
+                            return
                         }
 
                         const index = selector.nodes.findLastIndex(({ type }) => {
@@ -58,15 +46,7 @@ export async function attachScopeForStyleSelectors(
                         })
                         if (index !== -1) {
                             const lastNode = selector.nodes[index]
-                            lastNode.parent?.insertAfter(
-                                lastNode,
-                                selectorParser.attribute({
-                                    attribute: `qk-${hash}`,
-                                    value: undefined,
-                                    raws: {}
-                                })
-                            )
-                            scopePseudoSelectors[0]?.replaceWith(...scopePseudoSelectors[0].nodes)
+                            lastNode.parent?.insertAfter(lastNode, hashAttribute)
                         }
                     })
                 }).processSync(rule.selector)

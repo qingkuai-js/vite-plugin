@@ -4,3 +4,5 @@ sourcemap-test
 
 .vscode
 ./src/create-sourcemap-files.ts
+
+vite-plugin-qingkuai-*.tgz
