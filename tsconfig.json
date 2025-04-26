@@ -5,7 +5,7 @@
         "target": "ESNext",
         "declaration": true,
         "skipLibCheck": true,
-        "outDir": "dist/temp-type",
+        "outDir": "dist/temp-types",
         "emitDeclarationOnly": true,
         "moduleResolution": "bundler"
     },

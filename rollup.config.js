@@ -46,7 +46,7 @@ export default rollup.defineConfig(commentLineArgs => {
     ]
     if (!isWatchMode) {
         result.push({
-            input: `./dist/temp-type/index.d.ts`,
+            input: `./dist/temp-types/index.d.ts`,
             output: {
                 format: "es",
                 inlineDynamicImports: true,

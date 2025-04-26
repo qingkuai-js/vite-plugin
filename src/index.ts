@@ -23,10 +23,10 @@ export default function qingkuaiPlugin(): PluginOption {
     const compileResultCache = new Map<string, CompileResult>()
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
 
-    const qingkuaiPackageServeRE = /node_modules\/\.vite\/deps\/chunk-.*$/
     const confIdentifierRE = /__qk_expose_(?:dependencies|destructions)__/g
+    const qingkuaiPackageServeRE = /node_modules\/\.vite\/deps\/(?:chunk-|qingkuai.*)$/
     const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
-    const qingkuaiPackageBuildRE = /(?:node_modules)?\/qingkuai\/dist\/esm\/(?:chunks|runtime)\/\w+\.js$/
+    const qingkuaiPackageBuildRE = /(?:node_modules)?\/qingkuai\/dist\/(?:esm|cjs)\/(?:chunks|runtime)\/\w+\.js$/
 
     return {
         name: "qingkuai-compiler",
