@@ -2,6 +2,7 @@ import type { CompileResult } from "qingkuai/compiler"
 import type { QingkuaiConfiguration, SourceMap } from "./types"
 import type { PluginOption, ResolvedConfig, ViteDevServer } from "vite"
 
+import path from "node:path"
 import { findFilesByName } from "./util"
 import { randomBytes } from "node:crypto"
 import { compile, util } from "qingkuai/compiler"
@@ -11,7 +12,6 @@ import { encode } from "@jridgewell/sourcemap-codec"
 import { attachScopeForStyleSelectors } from "./scope"
 import { transformWithEsbuild, preprocessCSS } from "vite"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
-import { basename, dirname, extname, join as pathJoin } from "node:path"
 
 export default function qingkuaiPlugin(): PluginOption {
     let isDev: boolean
@@ -22,17 +22,21 @@ export default function qingkuaiPlugin(): PluginOption {
     const parseFailedConfigFiles: string[] = []
     const compileResultCache = new Map<string, CompileResult>()
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
-
-    const confIdentifierRE = /__qk_expose_(?:dependencies|destructions)__/g
-    const qingkuaiPackageServeRE = /node_modules\/\.vite\/deps\/(?:chunk-|qingkuai.*)$/
     const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
-    const qingkuaiPackageBuildRE = /(?:node_modules)?\/qingkuai\/dist\/(?:esm|cjs)\/(?:chunks|runtime)\/\w+\.js$/
 
     return {
         name: "qingkuai-compiler",
 
-        config(_, env) {
+        config(config, env) {
+            const rootPath = path.resolve(process.cwd(), config.root ?? "")
+            const qingkuaiConfig = getQingkuaiConfiguration(rootPath)
             isDev = env.command === "serve"
+            return {
+                define: {
+                    __qk_expose_dependencies__: JSON.stringify(!!qingkuaiConfig.exposeDependencies),
+                    __qk_expose_destructions__: JSON.stringify(!!qingkuaiConfig.exposeDestructions)
+                }
+            }
         },
 
         configureServer(server) {
@@ -55,9 +59,9 @@ export default function qingkuaiPlugin(): PluginOption {
             if (styleIdRE.test(id)) {
                 return id
             }
-            if (importer?.endsWith(".qk") && !extname(id)) {
+            if (importer?.endsWith(".qk") && !path.extname(id)) {
                 const qingkuaiConfig = getQingkuaiConfiguration(id)
-                return pathJoin(dirname(importer), id + (qingkuaiConfig.resolveImportExtension ? ".qk" : ""))
+                return path.join(path.dirname(importer), id + (qingkuaiConfig.resolveImportExtension ? ".qk" : ""))
             }
             return id
         },
@@ -148,21 +152,7 @@ export default function qingkuaiPlugin(): PluginOption {
         },
 
         async transform(src, id) {
-            const qingkuaiConfig = getQingkuaiConfiguration(id)
             if (!id.endsWith(".qk")) {
-                if (qingkuaiPackageServeRE.test(id) || qingkuaiPackageBuildRE.test(id)) {
-                    const ret = src.replace(confIdentifierRE, s => {
-                        switch (s) {
-                            case "__qk_expose_dependencies__":
-                                return JSON.stringify(!!qingkuaiConfig.exposeDependencies)
-                            case "__qk_expose_destructions__":
-                                return JSON.stringify(!!qingkuaiConfig.exposeDestructions)
-                            default:
-                                return s
-                        }
-                    })
-                    return ret
-                }
                 return
             }
 
@@ -171,8 +161,8 @@ export default function qingkuaiPlugin(): PluginOption {
                     sourcemap,
                     debug: isDev,
                     hashId: compileResultCache.get(id)?.hashId || undefined,
-                    reserveTemplateComment: getReserveHtmlComments(qingkuaiConfig),
-                    componentName: util.kebab2Camel(basename(id, extname(id)), true)
+                    componentName: util.kebab2Camel(path.basename(id, path.extname(id)), true),
+                    reserveTemplateComment: getReserveHtmlComments(getQingkuaiConfiguration(id))
                 })
                 compileRes.messages.forEach(({ type, value: warning }) => {
                     if (type === "warning") {
@@ -246,7 +236,7 @@ export default function qingkuaiPlugin(): PluginOption {
             reserveHtmlComments: "development"
         }
         while (true) {
-            const dir = dirname(id)
+            const dir = path.dirname(id)
             if (dir === id) {
                 break
             }
@@ -275,7 +265,7 @@ export default function qingkuaiPlugin(): PluginOption {
 
     function createQingkuaiConfigurationWatcher(server: ViteDevServer) {
         const watcher = server.watcher.add([".qingkuairc", "!**/node_modules/**"])
-        watcher.on("unlink", path => qingkuaiConfigurations.delete(dirname(path)))
+        watcher.on("unlink", p => qingkuaiConfigurations.delete(path.dirname(p)))
         watcher.on("change", recordQingkuaiConfiguration)
         watcher.on("add", recordQingkuaiConfiguration)
     }
@@ -288,7 +278,7 @@ export default function qingkuaiPlugin(): PluginOption {
 
     function recordQingkuaiConfiguration(fileName: string) {
         try {
-            qingkuaiConfigurations.set(dirname(fileName), JSON.parse(readFileSync(fileName, "utf-8")))
+            qingkuaiConfigurations.set(path.dirname(fileName), JSON.parse(readFileSync(fileName, "utf-8")))
         } catch {
             parseFailedConfigFiles.push(fileName)
         }
