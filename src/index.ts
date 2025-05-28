@@ -10,10 +10,10 @@ import { existsSync, readFileSync } from "node:fs"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { attachScopeForStyleSelectors } from "./scope"
-import { transformWithEsbuild, preprocessCSS } from "vite"
+import { transformWithEsbuild, preprocessCSS, optimizeDeps } from "vite"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
-export default function qingkuaiPlugin(): PluginOption {
+export default function qingkuai(): PluginOption {
     let isDev: boolean
     let sourcemap: boolean
     let cssSourcemap: boolean
@@ -52,6 +52,20 @@ export default function qingkuaiPlugin(): PluginOption {
                 cssSourcemap = true
                 sourcemap = config.build.sourcemap !== false
             }
+
+            const optimizeDeps = config.optimizeDeps
+            if (!optimizeDeps) {
+                Object.assign(config, {
+                    optimizeDeps: {
+                        exclude: ["qingkuai"]
+                    }
+                })
+            } else if (!optimizeDeps.exclude) {
+                optimizeDeps.exclude = ["qingkuai"]
+            } else {
+                optimizeDeps.exclude.push("qingkuai")
+            }
+
             loadAllQingkuaiConfigurations(config.root)
         },
 
