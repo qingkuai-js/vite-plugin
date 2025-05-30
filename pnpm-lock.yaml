@@ -34,8 +34,8 @@ importers:
         specifier: ^11.3.0
         version: 11.3.0
       qingkuai:
-        specifier: ^1.0.43
-        version: 1.0.43
+        specifier: ^1.0.45
+        version: 1.0.45
       rimraf:
         specifier: ^6.0.1
         version: 6.0.1
@@ -70,13 +70,13 @@ packages:
     resolution: {integrity: sha512-D2hP9eA+Sqx1kBZgzxZh0y1trbuU+JoDkiEwqhQ36nodYqJwyEIhPSdMNd7lOm/4io72luTPWH20Yda0xOuUow==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/parser@7.27.2':
-    resolution: {integrity: sha512-QYLs8299NA7WM/bZAdp+CviYYkVoYXlDW2rzliy3chxd1PQjej7JORuMJDJXJUb9g0TT+B99EwaVLKmX+sPXWw==}
+  '@babel/parser@7.27.3':
+    resolution: {integrity: sha512-xyYxRj6+tLNDTWi0KCBcZ9V7yg3/lwL9DWh9Uwh/RIVlIfFidggcgxKX3GCXwCiswwcGRawBKbEg2LG/Y8eJhw==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  '@babel/types@7.27.1':
-    resolution: {integrity: sha512-+EzkxvLNfiUeKMgy/3luqfsCWFRXLb7U6wNQTk60tovuckwB15B191tJWvpp4HjiQWdJkCxO3Wbvc6jlk3Xb2Q==}
+  '@babel/types@7.27.3':
+    resolution: {integrity: sha512-Y1GkI4ktrtvmawoSq+4FCVHNryea6uR+qUQy0AGxLSsjCX0nVmkYQMBLHDkXZuo5hGx7eYdnIaslsdBFm7zbUw==}
     engines: {node: '>=6.9.0'}
 
   '@esbuild/aix-ppc64@0.25.3':
@@ -532,8 +532,8 @@ packages:
     resolution: {integrity: sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  qingkuai@1.0.43:
-    resolution: {integrity: sha512-A1W94MmV/GuwAyaEfS0MD8+m+ZkzYGissk9zT+6cQ9kFVgXTi9A+tRFHaxsTgRCJJxaQWKR+2j0CtLoxJWak+g==}
+  qingkuai@1.0.45:
+    resolution: {integrity: sha512-2T7oEifrYH2lcPoH7hF5iqtbWlg9lc6R0Gd4QO5+XHxBhPk28BA6a9ojJqSj2gHtkiZQb4RjzUUy74CfyQnuBw==}
 
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
@@ -686,11 +686,11 @@ snapshots:
 
   '@babel/helper-validator-identifier@7.27.1': {}
 
-  '@babel/parser@7.27.2':
+  '@babel/parser@7.27.3':
     dependencies:
-      '@babel/types': 7.27.1
+      '@babel/types': 7.27.3
 
-  '@babel/types@7.27.1':
+  '@babel/types@7.27.3':
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
@@ -1022,9 +1022,9 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  qingkuai@1.0.43:
+  qingkuai@1.0.45:
     dependencies:
-      '@babel/parser': 7.27.2
+      '@babel/parser': 7.27.3
       '@jridgewell/sourcemap-codec': 1.5.0
       entities: 6.0.0
 

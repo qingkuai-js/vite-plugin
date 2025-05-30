@@ -25,7 +25,7 @@
         "@types/fs-extra": "^11.0.4",
         "@types/node": "^22.13.14",
         "fs-extra": "^11.3.0",
-        "qingkuai": "^1.0.43",
+        "qingkuai": "^1.0.45",
         "rimraf": "^6.0.1",
         "rollup": "^4.38.0",
         "rollup-plugin-dts": "^6.2.1",
@@ -33,7 +33,7 @@
         "vite": "^6.2.4"
     },
     "peerDependencies": {
-        "qingkuai": "^1.0.43",
+        "qingkuai": "^1.0.45",
         "vite": "^6.2.4"
     },
     "dependencies": {
