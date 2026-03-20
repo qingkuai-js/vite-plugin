@@ -9,6 +9,6 @@
         "emitDeclarationOnly": true,
         "moduleResolution": "bundler"
     },
-    "include": ["src"],
-    "exclude": ["src/create-sourcemap-files.ts"]
+    "include": ["src", "sourcemap-test/create-sourcemap-files.ts"],
+    "exclude": ["sourcemap-test/create-sourcemap-files.ts"]
 }

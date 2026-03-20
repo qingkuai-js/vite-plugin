@@ -10,12 +10,12 @@ export interface SourceMap {
 }
 
 export type QingkuaiConfiguration = Partial<{
-    exposeDestructions: boolean
-    exposeDependencies: boolean
-    insertTipComments: boolean
+    interpretiveComments: boolean
     resolveImportExtension: boolean
-    convenientDerivedDeclaration: boolean
-    reserveHtmlComments: "all" | "never" | "development" | "production"
+    shorthandDerivedDeclaration: boolean
+    reactivityMode: "reactive" | "shallow"
+    whitespace: "preserve" | "trim" | "collapse" | "trim-collapse"
+    preserveHtmlComments: "all" | "never" | "development" | "production"
 }>
 
 export interface PostcssPluginError {

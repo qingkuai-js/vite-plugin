@@ -1,16 +1,17 @@
-import type { CompileResult } from "qingkuai/compiler"
+import type { CompileOptions, CompileResult } from "qingkuai/compiler"
 import type { QingkuaiConfiguration, SourceMap } from "./types"
 import type { PluginOption, ResolvedConfig, ViteDevServer } from "vite"
 
-import path from "node:path"
-import { findFilesByName } from "./util"
-import { randomBytes } from "node:crypto"
+import nodePath from "node:path"
+import nodeCrypto from "node:crypto"
+
 import { compile, util } from "qingkuai/compiler"
 import { existsSync, readFileSync } from "node:fs"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
+import { findFilesByName, isUndefined } from "./util"
 import { attachScopeForStyleSelectors } from "./scope"
-import { transformWithEsbuild, preprocessCSS, optimizeDeps } from "vite"
+import { transformWithEsbuild, preprocessCSS } from "vite"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
 export default function qingkuai(): PluginOption {
@@ -27,16 +28,17 @@ export default function qingkuai(): PluginOption {
     return {
         name: "qingkuai-compiler",
 
-        config(config, env) {
-            const rootPath = path.resolve(process.cwd(), config.root ?? "")
-            const qingkuaiConfig = getQingkuaiConfiguration(rootPath)
+        config(_, env) {
             isDev = env.command === "serve"
-            return {
-                define: {
-                    __qk_expose_dependencies__: JSON.stringify(!!qingkuaiConfig.exposeDependencies),
-                    __qk_expose_destructions__: JSON.stringify(!!qingkuaiConfig.exposeDestructions)
-                }
-            }
+
+            // const rootPath = path.resolve(process.cwd(), config.root ?? "")
+            // const qingkuaiConfig = getQingkuaiConfiguration(rootPath)
+            // return {
+            //     define: {
+            //         __qk_expose_dependencies__: JSON.stringify(!!qingkuaiConfig.exposeDependencies),
+            //         __qk_expose_destructions__: JSON.stringify(!!qingkuaiConfig.exposeDestructions)
+            //     }
+            // }
         },
 
         configureServer(server) {
@@ -73,9 +75,12 @@ export default function qingkuai(): PluginOption {
             if (styleIdRE.test(id)) {
                 return id
             }
-            if (importer?.endsWith(".qk") && !path.extname(id)) {
+            if (importer?.endsWith(".qk") && !nodePath.extname(id)) {
                 const qingkuaiConfig = getQingkuaiConfiguration(id)
-                return path.join(path.dirname(importer), id + (qingkuaiConfig.resolveImportExtension ? ".qk" : ""))
+                return nodePath.join(
+                    nodePath.dirname(importer),
+                    id + (qingkuaiConfig.resolveImportExtension ? ".qk" : "")
+                )
             }
             return id
         },
@@ -89,11 +94,11 @@ export default function qingkuai(): PluginOption {
 
                 let virtualFileName: string
                 const compileRes = compileResultCache.get(fileId)!
-                const style = compileRes.inputDescriptor.styles[index]
+                const style = compileRes.styleDescriptors[index]
 
                 // create a relative and not existing file name
                 while (true) {
-                    const hash = randomBytes(6).toString("hex")
+                    const hash = nodeCrypto.randomBytes(6).toString("hex")
                     virtualFileName = `${fileId}.${hash}.${style.lang}`
                     if (!existsSync(virtualFileName)) {
                         break
@@ -142,7 +147,7 @@ export default function qingkuai(): PluginOption {
                                 line: preprocessedPosition.line - 1,
                                 column: preprocessedPosition.column
                             }) || 0
-                        const position = compileRes.inputDescriptor.positions[style.loc.start.index + preprocessedIndex]
+                        const position = compileRes.positions[style.loc.start.index + preprocessedIndex]
                         this.error({
                             message: attachScopeResult.error.message,
                             loc: {
@@ -172,11 +177,11 @@ export default function qingkuai(): PluginOption {
 
             try {
                 const compileRes = compile(src, {
+                    ...getCompileOptions(id),
                     sourcemap,
                     debug: isDev,
                     hashId: compileResultCache.get(id)?.hashId || undefined,
-                    componentName: util.kebab2Camel(path.basename(id, path.extname(id)), true),
-                    reserveTemplateComment: getReserveHtmlComments(getQingkuaiConfiguration(id))
+                    componentName: util.kebab2Camel(nodePath.basename(id, nodePath.extname(id)), true)
                 })
                 compileRes.messages.forEach(({ type, value: warning }) => {
                     if (type === "warning") {
@@ -186,7 +191,7 @@ export default function qingkuai(): PluginOption {
                 compileResultCache.set(id, compileRes)
 
                 const compiledCodeArr = [compileRes.code]
-                compileRes.inputDescriptor.styles.forEach((_, index) => {
+                compileRes.styleDescriptors.forEach((_, index) => {
                     compiledCodeArr.push(`import "virtual:[${index}]${id}.css?${Date.now()}"`)
                 })
 
@@ -196,7 +201,7 @@ export default function qingkuai(): PluginOption {
                     sourcesContent: [src]
                 }
                 const compiledCode = compiledCodeArr.join("\n")
-                if (!compileRes.inputDescriptor.script.isTS) {
+                if (!compileRes.scriptDescriptor.isTS) {
                     if (!sourcemap) {
                         return compiledCode
                     }
@@ -236,21 +241,19 @@ export default function qingkuai(): PluginOption {
                     })
                 }
             } catch (err: any) {
-                ;(err.pos = err.loc.start.index), this.error(err)
+                ;((err.pos = err.loc.start.index), this.error(err))
             }
         }
     }
 
     function getQingkuaiConfiguration(id: string) {
         let config: QingkuaiConfiguration = {
-            insertTipComments: true,
-            exposeDestructions: isDev,
-            exposeDependencies: isDev,
+            interpretiveComments: true,
             resolveImportExtension: true,
-            reserveHtmlComments: "development"
+            preserveHtmlComments: "development"
         }
         while (true) {
-            const dir = path.dirname(id)
+            const dir = nodePath.dirname(id)
             if (dir === id) {
                 break
             }
@@ -264,22 +267,9 @@ export default function qingkuai(): PluginOption {
         return config
     }
 
-    function getReserveHtmlComments(config: QingkuaiConfiguration) {
-        switch (config.reserveHtmlComments) {
-            case "all":
-                return true
-            case "never":
-                return false
-            case "production":
-                return !isDev
-            default:
-                return isDev
-        }
-    }
-
     function createQingkuaiConfigurationWatcher(server: ViteDevServer) {
         const watcher = server.watcher.add([".qingkuairc", "!**/node_modules/**"])
-        watcher.on("unlink", p => qingkuaiConfigurations.delete(path.dirname(p)))
+        watcher.on("unlink", p => qingkuaiConfigurations.delete(nodePath.dirname(p)))
         watcher.on("change", recordQingkuaiConfiguration)
         watcher.on("add", recordQingkuaiConfiguration)
     }
@@ -292,10 +282,55 @@ export default function qingkuai(): PluginOption {
 
     function recordQingkuaiConfiguration(fileName: string) {
         try {
-            qingkuaiConfigurations.set(path.dirname(fileName), JSON.parse(readFileSync(fileName, "utf-8")))
+            qingkuaiConfigurations.set(nodePath.dirname(fileName), JSON.parse(readFileSync(fileName, "utf-8")))
         } catch {
             parseFailedConfigFiles.push(fileName)
         }
+    }
+
+    function getCompileOptions(id: string) {
+        const qingkuaiConfig = getQingkuaiConfiguration(id)
+        const ret: CompileOptions = {
+            interpretiveComments: isUndefined(qingkuaiConfig.interpretiveComments)
+                ? isDev
+                : !!qingkuaiConfig.interpretiveComments,
+            shorthandDerivedDeclaration: isUndefined(qingkuaiConfig.shorthandDerivedDeclaration)
+                ? true
+                : !!qingkuaiConfig.shorthandDerivedDeclaration,
+            reactivityMode: qingkuaiConfig.reactivityMode === "shallow" ? "shallow" : "reactive"
+        }
+        switch (qingkuaiConfig.whitespace) {
+            case "trim":
+            case "collapse":
+            case "preserve":
+            case "trim-collapse": {
+                ret.whitespace = qingkuaiConfig.whitespace
+                break
+            }
+            default: {
+                ret.whitespace = "trim-collapse"
+                break
+            }
+        }
+        switch (qingkuaiConfig.preserveHtmlComments) {
+            case "all": {
+                ret.preserveHtmlComments = true
+                break
+            }
+            case "never": {
+                ret.preserveHtmlComments = false
+                break
+            }
+            case "production": {
+                ret.preserveHtmlComments = !isDev
+                break
+            }
+            default: {
+                ret.preserveHtmlComments = isDev
+                break
+            }
+        }
+        return ret
     }
 }
 
