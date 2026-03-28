@@ -180,7 +180,7 @@ export default function qingkuai(): PluginOption {
                     ...getCompileOptions(id),
                     sourcemap,
                     debug: isDev,
-                    hashId: compileResultCache.get(id)?.hashId || undefined,
+                    hashId: compileResultCache.get(id)?.hashId,
                     componentName: util.kebab2Camel(nodePath.basename(id, nodePath.extname(id)), true)
                 })
                 compileRes.messages.forEach(({ type, value: warning }) => {

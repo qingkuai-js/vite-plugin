@@ -2,7 +2,7 @@
     "name": "vite-plugin-qingkuai",
     "author": "mlgq",
     "license": "MIT",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "type": "module",
     "keywords": [
         "vite",
