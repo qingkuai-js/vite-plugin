@@ -1,11 +1,11 @@
 import type { CompileOptions, CompileResult } from "qingkuai/compiler"
 import type { QingkuaiConfiguration, SourceMap } from "./types"
-import type { PluginOption, ResolvedConfig, ViteDevServer } from "vite"
+import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
 
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
-import { compile, util } from "qingkuai/compiler"
+import { compile } from "qingkuai/compiler"
 import { existsSync, readFileSync } from "node:fs"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
@@ -14,7 +14,7 @@ import { attachScopeForStyleSelectors } from "./scope"
 import { transformWithEsbuild, preprocessCSS } from "vite"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
-export default function qingkuai(): PluginOption {
+export default function qingkuai(): Plugin {
     let isDev: boolean
     let sourcemap: boolean
     let cssSourcemap: boolean
@@ -180,8 +180,7 @@ export default function qingkuai(): PluginOption {
                     ...getCompileOptions(id),
                     sourcemap,
                     debug: isDev,
-                    hashId: compileResultCache.get(id)?.hashId,
-                    componentName: util.kebab2Camel(nodePath.basename(id, nodePath.extname(id)), true)
+                    hashId: compileResultCache.get(id)?.hashId
                 })
                 compileRes.messages.forEach(({ type, value: warning }) => {
                     if (type === "warning") {
