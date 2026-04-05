@@ -240,7 +240,13 @@ export default function qingkuai(): Plugin {
                     })
                 }
             } catch (err: any) {
-                ;((err.pos = err.loc.start.index), this.error(err))
+                if (err.loc.start && "index" in err.loc.start) {
+                    ;((err.pos = err.loc.start.index), this.error(err))
+                } else {
+                    this.error(
+                        "Qingkuai compile result is invalid. Please report this at https://github.com/qingkuai-js/qingkuai/issues and include your .qk source for reproduction."
+                    )
+                }
             }
         }
     }
