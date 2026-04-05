@@ -5,6 +5,7 @@ import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
+import { globalStyle } from "./constants"
 import { compile } from "qingkuai/compiler"
 import { existsSync, readFileSync } from "node:fs"
 import { LinesAndColumns } from "lines-and-columns"
@@ -69,6 +70,19 @@ export default function qingkuai(): Plugin {
             }
 
             loadAllQingkuaiConfigurations(config.root)
+        },
+
+        transformIndexHtml(html) {
+            return {
+                html,
+                tags: [
+                    {
+                        tag: "style",
+                        injectTo: "head",
+                        children: globalStyle
+                    }
+                ]
+            }
         },
 
         resolveId(id, importer) {
