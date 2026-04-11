@@ -2,6 +2,8 @@ import type { CompileOptions, CompileResult } from "qingkuai/compiler"
 import type { QingkuaiConfiguration, SourceMap } from "./types"
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
 
+import * as vite from "vite"
+
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
@@ -12,7 +14,6 @@ import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { findFilesByName, isUndefined } from "./util"
 import { attachScopeForStyleSelectors } from "./scope"
-import { transformWithEsbuild, preprocessCSS } from "vite"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
 export default function qingkuai(): Plugin {
@@ -54,19 +55,6 @@ export default function qingkuai(): Plugin {
             } else {
                 cssSourcemap = true
                 sourcemap = config.build.sourcemap !== false
-            }
-
-            const optimizeDeps = config.optimizeDeps
-            if (!optimizeDeps) {
-                Object.assign(config, {
-                    optimizeDeps: {
-                        exclude: ["qingkuai"]
-                    }
-                })
-            } else if (!optimizeDeps.exclude) {
-                optimizeDeps.exclude = ["qingkuai"]
-            } else {
-                optimizeDeps.exclude.push("qingkuai")
             }
 
             loadAllQingkuaiConfigurations(config.root)
@@ -119,7 +107,7 @@ export default function qingkuai(): Plugin {
                     }
                 }
 
-                const preprocessRes = await preprocessCSS(style.code, virtualFileName, {
+                const preprocessRes = await vite.preprocessCSS(style.code, virtualFileName, {
                     ...viteConfig,
                     css: {
                         ...viteConfig.css,
@@ -226,31 +214,52 @@ export default function qingkuai(): Plugin {
                     }
                 }
 
-                const esBuildCompileRes = await transformWithEsbuild(
-                    compiledCode,
-                    id,
-                    {
-                        sourcemap,
-                        loader: "ts",
-                        target: "esnext"
-                    },
-                    sourcemap
-                        ? {
-                              version: 3,
-                              sources: [id],
-                              sourcesContent: [src],
-                              mappings: compileRes.mappings
-                          }
-                        : undefined
-                )
+                const inputMap = sourcemap
+                    ? {
+                          version: 3,
+                          sources: [id],
+                          sourcesContent: [src],
+                          mappings: compileRes.mappings
+                      }
+                    : undefined
+                const transformWithEsbuild = (vite as any).transformWithEsbuild
+                const transformWithOxc = (vite as any).transformWithOxc
+                const tsCompileRes = transformWithEsbuild
+                    ? await transformWithEsbuild(
+                          compiledCode,
+                          id,
+                          {
+                              sourcemap,
+                              loader: "ts",
+                              target: "esnext"
+                          },
+                          inputMap
+                      )
+                    : transformWithOxc
+                      ? await transformWithOxc(
+                            compiledCode,
+                            id,
+                            {
+                                sourcemap,
+                                target: "esnext"
+                            },
+                            inputMap
+                        )
+                      : null
+
+                if (!tsCompileRes) {
+                    this.error("Current Vite runtime does not provide TypeScript transform APIs.")
+                }
 
                 if (!sourcemap) {
-                    return esBuildCompileRes.code
+                    return tsCompileRes.code
                 }
+                const transformedMap =
+                    typeof tsCompileRes.map === "string" ? JSON.parse(tsCompileRes.map) : tsCompileRes.map
                 return {
-                    code: esBuildCompileRes.code,
+                    code: tsCompileRes.code,
                     map: Object.assign(baseMap, {
-                        mappings: esBuildCompileRes.map.mappings
+                        mappings: transformedMap?.mappings || compileRes.mappings
                     })
                 }
             } catch (err: any) {
@@ -287,10 +296,29 @@ export default function qingkuai(): Plugin {
     }
 
     function createQingkuaiConfigurationWatcher(server: ViteDevServer) {
-        const watcher = server.watcher.add([".qingkuairc", "!**/node_modules/**"])
-        watcher.on("unlink", p => qingkuaiConfigurations.delete(nodePath.dirname(p)))
-        watcher.on("change", recordQingkuaiConfiguration)
-        watcher.on("add", recordQingkuaiConfiguration)
+        const watcher = server.watcher
+        const isQingkuaiConfig = (filePath: string) => {
+            return (
+                nodePath.basename(filePath) === ".qingkuairc" &&
+                !filePath.includes(`${nodePath.sep}node_modules${nodePath.sep}`)
+            )
+        }
+
+        watcher.on("unlink", filePath => {
+            if (isQingkuaiConfig(filePath)) {
+                qingkuaiConfigurations.delete(nodePath.dirname(filePath))
+            }
+        })
+        watcher.on("change", filePath => {
+            if (isQingkuaiConfig(filePath)) {
+                recordQingkuaiConfiguration(filePath)
+            }
+        })
+        watcher.on("add", filePath => {
+            if (isQingkuaiConfig(filePath)) {
+                recordQingkuaiConfiguration(filePath)
+            }
+        })
     }
 
     function loadAllQingkuaiConfigurations(workspaceDir: string) {
