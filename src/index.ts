@@ -214,38 +214,27 @@ export default function qingkuai(): Plugin {
                     }
                 }
 
-                const inputMap = sourcemap
-                    ? {
-                          version: 3,
-                          sources: [id],
-                          sourcesContent: [src],
-                          mappings: compileRes.mappings
-                      }
-                    : undefined
-                const transformWithEsbuild = (vite as any).transformWithEsbuild
                 const transformWithOxc = (vite as any).transformWithOxc
-                const tsCompileRes = transformWithEsbuild
-                    ? await transformWithEsbuild(
-                          compiledCode,
-                          id,
-                          {
-                              sourcemap,
-                              loader: "ts",
-                              target: "esnext"
-                          },
-                          inputMap
-                      )
-                    : transformWithOxc
-                      ? await transformWithOxc(
-                            compiledCode,
-                            id,
-                            {
-                                sourcemap,
-                                target: "esnext"
-                            },
-                            inputMap
-                        )
-                      : null
+                const transformWithEsbuild = (vite as any).transformWithEsbuild
+                const tsCompileRes = await (transformWithOxc ?? transformWithEsbuild)(
+                    compiledCode,
+                    id,
+                    {
+                        sourcemap,
+                        lang: "ts",
+                        loader: "ts",
+                        target: "esnext"
+                    },
+                    sourcemap
+                        ? {
+                              version: 3,
+                              names: [],
+                              sources: [id],
+                              sourcesContent: [src],
+                              mappings: compileRes.mappings
+                          }
+                        : undefined
+                )
 
                 if (!tsCompileRes) {
                     this.error("Current Vite runtime does not provide TypeScript transform APIs.")
@@ -254,8 +243,11 @@ export default function qingkuai(): Plugin {
                 if (!sourcemap) {
                     return tsCompileRes.code
                 }
-                const transformedMap =
-                    typeof tsCompileRes.map === "string" ? JSON.parse(tsCompileRes.map) : tsCompileRes.map
+
+                let transformedMap = tsCompileRes.map
+                if (typeof tsCompileRes.map === "string") {
+                    transformedMap = JSON.parse(tsCompileRes.map)
+                }
                 return {
                     code: tsCompileRes.code,
                     map: Object.assign(baseMap, {
@@ -263,7 +255,7 @@ export default function qingkuai(): Plugin {
                     })
                 }
             } catch (err: any) {
-                if (err.loc.start && "index" in err.loc.start) {
+                if (err.loc && "start" in err.loc && "index" in err.loc.start) {
                     ;((err.pos = err.loc.start.index), this.error(err))
                 } else {
                     this.error(
