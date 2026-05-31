@@ -1,6 +1,6 @@
-import type { CompileOptions, CompileResult } from "qingkuai/compiler"
-import type { QingkuaiConfiguration, SourceMap } from "./types"
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
+import type { CompileOptions, CompileResult } from "qingkuai/compiler"
+import type { InitOptions, QingkuaiConfiguration, SourceMap } from "./types"
 
 import * as vite from "vite"
 
@@ -16,7 +16,7 @@ import { findFilesByName, isUndefined } from "./util"
 import { attachScopeForStyleSelectors } from "./scope"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
-export default function qingkuai(): Plugin {
+export default function qingkuai(options: InitOptions = {}): Plugin {
     let isDev: boolean
     let sourcemap: boolean
     let cssSourcemap: boolean
@@ -27,20 +27,20 @@ export default function qingkuai(): Plugin {
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
     const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
 
+    if (isUndefined(options.maxScheduleDepth)) {
+        options.maxScheduleDepth = 300
+    }
+
     return {
         name: "qingkuai-compiler",
 
         config(_, env) {
             isDev = env.command === "serve"
-
-            // const rootPath = path.resolve(process.cwd(), config.root ?? "")
-            // const qingkuaiConfig = getQingkuaiConfiguration(rootPath)
-            // return {
-            //     define: {
-            //         __qk_expose_dependencies__: JSON.stringify(!!qingkuaiConfig.exposeDependencies),
-            //         __qk_expose_destructions__: JSON.stringify(!!qingkuaiConfig.exposeDestructions)
-            //     }
-            // }
+            return {
+                define: {
+                    __qk_max_schedule_depth: options.maxScheduleDepth
+                }
+            }
         },
 
         configureServer(server) {
