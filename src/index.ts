@@ -127,10 +127,16 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                     virtualFileName,
                     assertedPreprocessMap
                 )
+                const attachScopeMap = attachScopeResult.map ?? assertedPreprocessMap
+                const samePath = (left: string, right: string) => {
+                    return nodePath.normalize(left) === nodePath.normalize(right)
+                }
+                const sourceIndex = attachScopeMap?.sources.findIndex(source => samePath(source, virtualFileName)) ?? -1
+                const currentSourceIndex = sourceIndex === -1 ? preprocessRes.deps?.size || 0 : sourceIndex
                 const offsetMappings = encode(
                     offsetSourceMap(
                         attachScopeResult.mappings,
-                        preprocessRes.deps?.size || 0,
+                        currentSourceIndex,
                         style.loc.start.line - 1,
                         style.loc.start.column - 1
                     )
@@ -144,6 +150,16 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                             attachScopeResult.error.loc.line,
                             attachScopeResult.error.loc.column
                         )
+                        if (preprocessedPosition.source && !samePath(preprocessedPosition.source, virtualFileName)) {
+                            this.error({
+                                message: attachScopeResult.error.message,
+                                loc: {
+                                    file: preprocessedPosition.source,
+                                    line: preprocessedPosition.line,
+                                    column: preprocessedPosition.column
+                                }
+                            })
+                        }
                         const preprocessedIndex =
                             new LinesAndColumns(style.code).indexForLocation({
                                 line: preprocessedPosition.line - 1,
@@ -165,8 +181,25 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                     map: {
                         version: 3,
                         mappings: offsetMappings,
-                        names: assertedPreprocessMap?.names || [],
-                        sources: [...(assertedPreprocessMap ? assertedPreprocessMap.sources.slice(0, -1) : []), fileId]
+                        names: attachScopeMap?.names || assertedPreprocessMap?.names || [],
+                        sources: attachScopeMap?.sources
+                            ? (() => {
+                                  const sources = [...attachScopeMap.sources]
+                                  if (currentSourceIndex !== -1) {
+                                      sources[currentSourceIndex] = fileId
+                                  }
+                                  return sources
+                              })()
+                            : [...(assertedPreprocessMap ? assertedPreprocessMap.sources.slice(0, -1) : []), fileId],
+                        sourcesContent: attachScopeMap?.sourcesContent
+                            ? (() => {
+                                  const sourcesContent = [...attachScopeMap.sourcesContent]
+                                  if (currentSourceIndex !== -1) {
+                                      sourcesContent[currentSourceIndex] = readFileSync(fileId, "utf-8")
+                                  }
+                                  return sourcesContent
+                              })()
+                            : undefined
                     }
                 }
             }

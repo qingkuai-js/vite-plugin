@@ -10,15 +10,25 @@ export async function attachScopeForStyleSelectors(
     map: SourceMap | undefined
 ) {
     let error: PostcssPluginError | undefined
-    const hashAttribute = selectorParser.attribute({
-        attribute: `qk-${hash}`,
-        value: undefined,
-        raws: {}
-    })
+    const processedRules = new WeakSet<object>()
+
+    const createHashAttribute = () => {
+        return selectorParser.attribute({
+            attribute: `qk-${hash}`,
+            value: undefined,
+            raws: {}
+        })
+    }
+
     const processor = postcss([
         {
             postcssPlugin: "postcss-attach-scope-qingkuai",
             Rule(rule) {
+                if (processedRules.has(rule)) {
+                    return
+                }
+                processedRules.add(rule)
+
                 if (rule.parent && "name" in rule?.parent && rule.parent.name === "keyframes") {
                     return
                 }
@@ -28,7 +38,8 @@ export async function attachScopeForStyleSelectors(
                         for (let i = 0; i < selector.nodes.length; i++) {
                             const item = selector.nodes[i]
                             if (item.type === "attribute" && item.attribute === "qk-scope") {
-                                ;[usedScopeAttribute, selector.nodes[i]] = [true, hashAttribute]
+                                selector.nodes[i] = createHashAttribute()
+                                usedScopeAttribute = true
                             }
                         }
                         if (usedScopeAttribute) {
@@ -46,7 +57,7 @@ export async function attachScopeForStyleSelectors(
                         })
                         if (index !== -1) {
                             const lastNode = selector.nodes[index]
-                            lastNode.parent?.insertAfter(lastNode, hashAttribute)
+                            lastNode.parent?.insertAfter(lastNode, createHashAttribute())
                         }
                     })
                 }).processSync(rule.selector)
@@ -61,5 +72,11 @@ export async function attachScopeForStyleSelectors(
             annotation: false
         }
     })
-    return { error, code: ret.css, mappings: ret.map.toJSON().mappings }
+    const outputMap = ret.map?.toJSON()
+    return {
+        error,
+        code: ret.css,
+        map: outputMap,
+        mappings: outputMap?.mappings || ""
+    }
 }
