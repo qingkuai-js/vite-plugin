@@ -4,16 +4,16 @@ import type { InitOptions, QingkuaiConfiguration, SourceMap } from "./types"
 
 import * as vite from "vite"
 
+import nodeFs from "node:fs"
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
-import { globalStyle } from "./constants"
 import { compile } from "qingkuai/compiler"
-import { existsSync, readFileSync } from "node:fs"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { findFilesByName, isUndefined } from "./util"
 import { attachScopeForStyleSelectors } from "./scope"
+import { globalStyle, VIRTUAL_STYLE_ID_RE } from "./constants"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
 export default function qingkuai(options: InitOptions = {}): Plugin {
@@ -25,7 +25,6 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
     const parseFailedConfigFiles: string[] = []
     const compileResultCache = new Map<string, CompileResult>()
     const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
-    const styleIdRE = /^virtual:\[\d+\].*?\.qk.(?:css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
 
     if (isUndefined(options.maxScheduleDepth)) {
         options.maxScheduleDepth = 300
@@ -74,7 +73,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
         },
 
         resolveId(id, importer) {
-            if (styleIdRE.test(id)) {
+            if (VIRTUAL_STYLE_ID_RE.test(id)) {
                 return id
             }
             if (importer?.endsWith(".qk") && !nodePath.extname(id)) {
@@ -88,119 +87,122 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
         },
 
         async load(id) {
-            if (styleIdRE.test(id)) {
-                const { fileId, index } = parseStyleId(id)
-                if (index === -1) {
-                    return ""
+            if (!VIRTUAL_STYLE_ID_RE.test(id)) {
+                return
+            }
+
+            const { fileId, index } = parseStyleId(id)
+            if (index === -1) {
+                return ""
+            }
+
+            let virtualFileName: string
+            const compileRes = compileResultCache.get(fileId)!
+            const style = compileRes.styleDescriptors[index]
+
+            // create a relative and not existing file name
+            while (true) {
+                const hash = nodeCrypto.randomBytes(6).toString("hex")
+                virtualFileName = `${fileId}.${hash}.${style.lang}`
+
+                if (!nodeFs.existsSync(virtualFileName)) {
+                    break
                 }
+            }
 
-                let virtualFileName: string
-                const compileRes = compileResultCache.get(fileId)!
-                const style = compileRes.styleDescriptors[index]
-
-                // create a relative and not existing file name
-                while (true) {
-                    const hash = nodeCrypto.randomBytes(6).toString("hex")
-                    virtualFileName = `${fileId}.${hash}.${style.lang}`
-                    if (!existsSync(virtualFileName)) {
-                        break
+            const preprocessRes = await vite.preprocessCSS(style.code, virtualFileName, {
+                ...viteConfig,
+                css: {
+                    ...viteConfig.css,
+                    postcss: {
+                        from: virtualFileName
                     }
                 }
+            })
+            if (!cssSourcemap || style.global) {
+                return preprocessRes
+            }
 
-                const preprocessRes = await vite.preprocessCSS(style.code, virtualFileName, {
-                    ...viteConfig,
-                    css: {
-                        ...viteConfig.css,
-                        postcss: {
-                            from: virtualFileName
-                        }
-                    }
-                })
-                if (!cssSourcemap) {
-                    return preprocessRes.code
-                }
-
-                const assertedPreprocessMap = preprocessRes.map as SourceMap | undefined
-                const attachScopeResult = await attachScopeForStyleSelectors(
-                    preprocessRes.code,
-                    compileRes.hashId,
-                    virtualFileName,
-                    assertedPreprocessMap
+            const assertedPreprocessMap = preprocessRes.map as SourceMap | undefined
+            const attachScopeResult = await attachScopeForStyleSelectors(
+                preprocessRes.code,
+                compileRes.hashId,
+                virtualFileName,
+                assertedPreprocessMap
+            )
+            const attachScopeMap = attachScopeResult.map ?? assertedPreprocessMap
+            const samePath = (left: string, right: string) => {
+                return nodePath.normalize(left) === nodePath.normalize(right)
+            }
+            const sourceIndex = attachScopeMap?.sources.findIndex(source => samePath(source, virtualFileName)) ?? -1
+            const currentSourceIndex = sourceIndex === -1 ? preprocessRes.deps?.size || 0 : sourceIndex
+            const offsetMappings = encode(
+                offsetSourceMap(
+                    attachScopeResult.mappings,
+                    currentSourceIndex,
+                    style.loc.start.line - 1,
+                    style.loc.start.column - 1
                 )
-                const attachScopeMap = attachScopeResult.map ?? assertedPreprocessMap
-                const samePath = (left: string, right: string) => {
-                    return nodePath.normalize(left) === nodePath.normalize(right)
-                }
-                const sourceIndex = attachScopeMap?.sources.findIndex(source => samePath(source, virtualFileName)) ?? -1
-                const currentSourceIndex = sourceIndex === -1 ? preprocessRes.deps?.size || 0 : sourceIndex
-                const offsetMappings = encode(
-                    offsetSourceMap(
-                        attachScopeResult.mappings,
-                        currentSourceIndex,
-                        style.loc.start.line - 1,
-                        style.loc.start.column - 1
+            )
+            if (attachScopeResult.error) {
+                if (!attachScopeResult.error.loc) {
+                    this.error(attachScopeResult.error.message)
+                } else {
+                    const preprocessedPosition = await getOriginalPosition(
+                        assertedPreprocessMap,
+                        attachScopeResult.error.loc.line,
+                        attachScopeResult.error.loc.column
                     )
-                )
-                if (attachScopeResult.error) {
-                    if (!attachScopeResult.error.loc) {
-                        this.error(attachScopeResult.error.message)
-                    } else {
-                        const preprocessedPosition = await getOriginalPosition(
-                            assertedPreprocessMap,
-                            attachScopeResult.error.loc.line,
-                            attachScopeResult.error.loc.column
-                        )
-                        if (preprocessedPosition.source && !samePath(preprocessedPosition.source, virtualFileName)) {
-                            this.error({
-                                message: attachScopeResult.error.message,
-                                loc: {
-                                    file: preprocessedPosition.source,
-                                    line: preprocessedPosition.line,
-                                    column: preprocessedPosition.column
-                                }
-                            })
-                        }
-                        const preprocessedIndex =
-                            new LinesAndColumns(style.code).indexForLocation({
-                                line: preprocessedPosition.line - 1,
-                                column: preprocessedPosition.column
-                            }) || 0
-                        const position = compileRes.positions[style.loc.start.index + preprocessedIndex]
+                    if (preprocessedPosition.source && !samePath(preprocessedPosition.source, virtualFileName)) {
                         this.error({
                             message: attachScopeResult.error.message,
                             loc: {
-                                file: fileId,
-                                line: position.line,
-                                column: position.column
+                                file: preprocessedPosition.source,
+                                line: preprocessedPosition.line,
+                                column: preprocessedPosition.column
                             }
                         })
                     }
+                    const preprocessedIndex =
+                        new LinesAndColumns(style.code).indexForLocation({
+                            line: preprocessedPosition.line - 1,
+                            column: preprocessedPosition.column
+                        }) || 0
+                    const position = compileRes.positions[style.loc.start.index + preprocessedIndex]
+                    this.error({
+                        message: attachScopeResult.error.message,
+                        loc: {
+                            file: fileId,
+                            line: position.line,
+                            column: position.column
+                        }
+                    })
                 }
-                return {
-                    code: attachScopeResult.code,
-                    map: {
-                        version: 3,
-                        mappings: offsetMappings,
-                        names: attachScopeMap?.names || assertedPreprocessMap?.names || [],
-                        sources: attachScopeMap?.sources
-                            ? (() => {
-                                  const sources = [...attachScopeMap.sources]
-                                  if (currentSourceIndex !== -1) {
-                                      sources[currentSourceIndex] = fileId
-                                  }
-                                  return sources
-                              })()
-                            : [...(assertedPreprocessMap ? assertedPreprocessMap.sources.slice(0, -1) : []), fileId],
-                        sourcesContent: attachScopeMap?.sourcesContent
-                            ? (() => {
-                                  const sourcesContent = [...attachScopeMap.sourcesContent]
-                                  if (currentSourceIndex !== -1) {
-                                      sourcesContent[currentSourceIndex] = readFileSync(fileId, "utf-8")
-                                  }
-                                  return sourcesContent
-                              })()
-                            : undefined
-                    }
+            }
+            return {
+                code: attachScopeResult.code,
+                map: {
+                    version: 3,
+                    mappings: offsetMappings,
+                    names: attachScopeMap?.names || assertedPreprocessMap?.names || [],
+                    sources: attachScopeMap?.sources
+                        ? (() => {
+                              const sources = [...attachScopeMap.sources]
+                              if (currentSourceIndex !== -1) {
+                                  sources[currentSourceIndex] = fileId
+                              }
+                              return sources
+                          })()
+                        : [...(assertedPreprocessMap ? assertedPreprocessMap.sources.slice(0, -1) : []), fileId],
+                    sourcesContent: attachScopeMap?.sourcesContent
+                        ? (() => {
+                              const sourcesContent = [...attachScopeMap.sourcesContent]
+                              if (currentSourceIndex !== -1) {
+                                  sourcesContent[currentSourceIndex] = nodeFs.readFileSync(fileId, "utf-8")
+                              }
+                              return sourcesContent
+                          })()
+                        : undefined
                 }
             }
         },
@@ -354,7 +356,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
 
     function recordQingkuaiConfiguration(fileName: string) {
         try {
-            qingkuaiConfigurations.set(nodePath.dirname(fileName), JSON.parse(readFileSync(fileName, "utf-8")))
+            qingkuaiConfigurations.set(nodePath.dirname(fileName), JSON.parse(nodeFs.readFileSync(fileName, "utf-8")))
         } catch {
             parseFailedConfigFiles.push(fileName)
         }

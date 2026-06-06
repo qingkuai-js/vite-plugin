@@ -14,3 +14,5 @@ export const globalStyle =
         )
         .replace(/^/gm, "    ") +
     "\n"
+
+export const VIRTUAL_STYLE_ID_RE = /^virtual:\[\d+\].*?\.qk\.(css|s[ac]ss|less|stylus|postcss)\?\d{13}$/
