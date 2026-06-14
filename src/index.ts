@@ -8,10 +8,10 @@ import nodeFs from "node:fs"
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
-import { compile } from "qingkuai/compiler"
+import { compile, isCompileError } from "qingkuai/compiler"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
-import { findFilesByName, isUndefined } from "./util"
+import { findFilesByName, isNumber, isUndefined } from "./util"
 import { attachScopeForStyleSelectors } from "./scope"
 import { globalStyle, VIRTUAL_STYLE_ID_RE } from "./constants"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
@@ -48,6 +48,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
 
         configResolved(config) {
             viteConfig = config
+
             if (isDev) {
                 sourcemap = true
                 cssSourcemap = !!config.css.devSourcemap
@@ -98,28 +99,69 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
 
             let virtualFileName: string
             const compileRes = compileResultCache.get(fileId)!
-            const style = compileRes.styleDescriptors[index]
+            const styleDescriptor = compileRes.styleDescriptors[index]
 
             // create a relative and not existing file name
             while (true) {
                 const hash = nodeCrypto.randomBytes(6).toString("hex")
-                virtualFileName = `${fileId}.${hash}.${style.lang}`
+                virtualFileName = `${fileId}.${hash}.${styleDescriptor.lang}`
 
                 if (!nodeFs.existsSync(virtualFileName)) {
                     break
                 }
             }
 
-            const preprocessRes = await vite.preprocessCSS(style.code, virtualFileName, {
-                ...viteConfig,
-                css: {
-                    ...viteConfig.css,
-                    postcss: {
-                        from: virtualFileName
+            let preprocessRes: Awaited<ReturnType<typeof vite.preprocessCSS>>
+            try {
+                preprocessRes = await vite.preprocessCSS(styleDescriptor.code, virtualFileName, {
+                    ...viteConfig,
+                    css: {
+                        ...viteConfig.css,
+                        postcss: {
+                            from: virtualFileName
+                        }
+                    }
+                })
+            } catch (err: any) {
+                let errorPos: number | null = null
+                const lac = new LinesAndColumns(styleDescriptor.code)
+                switch (styleDescriptor.lang) {
+                    case "css":
+                    case "less":
+                    case "stylus": {
+                        delete err.loc
+                        err.message += `\n\nCaused by: "${fileId}".`
+                        break
+                    }
+                    case "sass":
+                    case "scss": {
+                        if (err.sassMessage) {
+                            err.message = err.sassMessage
+                        }
+                        if (isNumber(err.line) && isNumber(err.column)) {
+                            errorPos = lac.indexForLocation({
+                                line: err.line - 1,
+                                column: err.column - 1
+                            })
+                        }
+                        break
                     }
                 }
-            })
-            if (!cssSourcemap || style.global) {
+                if (isNumber(errorPos) && !isNaN(errorPos)) {
+                    const loc = lac.locationForIndex(errorPos + styleDescriptor.loc.start.index)
+                    if (loc) {
+                        err.loc = {
+                            file: fileId,
+                            line: loc.line + 1,
+                            column: loc.column
+                        }
+                        delete err.frame
+                    }
+                }
+                return this.error(err)
+            }
+
+            if (!cssSourcemap || styleDescriptor.global) {
                 return preprocessRes
             }
 
@@ -140,8 +182,8 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 offsetSourceMap(
                     attachScopeResult.mappings,
                     currentSourceIndex,
-                    style.loc.start.line - 1,
-                    style.loc.start.column - 1
+                    styleDescriptor.loc.start.line - 1,
+                    styleDescriptor.loc.start.column - 1
                 )
             )
             if (attachScopeResult.error) {
@@ -164,11 +206,11 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                         })
                     }
                     const preprocessedIndex =
-                        new LinesAndColumns(style.code).indexForLocation({
+                        new LinesAndColumns(styleDescriptor.code).indexForLocation({
                             line: preprocessedPosition.line - 1,
                             column: preprocessedPosition.column
                         }) || 0
-                    const position = compileRes.positions[style.loc.start.index + preprocessedIndex]
+                    const position = compileRes.positions[styleDescriptor.loc.start.index + preprocessedIndex]
                     this.error({
                         message: attachScopeResult.error.message,
                         loc: {
@@ -290,8 +332,10 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                     })
                 }
             } catch (err: any) {
-                if (err.loc && "start" in err.loc && "index" in err.loc.start) {
-                    ;((err.pos = err.loc.start.index), this.error(err))
+                if (isCompileError(err)) {
+                    this.error(err.message, err.loc.start.index)
+                } else if (err.cause && isNumber(err.cause.pos)) {
+                    this.error(err, err.cause.pos)
                 } else {
                     this.error(
                         "Qingkuai compile result is invalid. Please report this at https://github.com/qingkuai-js/qingkuai/issues and include your .qk source for reproduction."
