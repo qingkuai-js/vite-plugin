@@ -2,14 +2,9 @@
   "name": "vite-plugin-qingkuai",
   "author": "mlgq",
   "license": "MIT",
-  "version": "1.0.23",
   "type": "module",
-  "keywords": [
-    "vite",
-    "qingkuai",
-    "vite plugin",
-    "vite-plugin"
-  ],
+  "version": "1.0.23",
+  "packageManager": "pnpm@9.9.0",
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -20,8 +15,12 @@
     "type": "git",
     "url": "git+https://github.com/qingkuai-js/vite-plugin.git"
   },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs,json,md,yml,yaml}": "prettier --write"
+  },
   "scripts": {
     "dev": "rollup -c -w",
+    "release": "node scripts/release.js",
     "build": "rimraf dist && tsc && rollup -c && rimraf dist/temp-types",
     "postpublish": "curl -X PUT 'https://registry-direct.npmmirror.com/-/package/vite-plugin-qingkuai/syncs'"
   },
@@ -29,7 +28,9 @@
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.13.14",
     "fs-extra": "^11.3.0",
-    "qingkuai": "^1.0.45",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "qingkuai": "^1.0.83",
     "rimraf": "^6.0.1",
     "rollup": "^4.38.0",
     "rollup-plugin-dts": "^6.2.1",
@@ -46,5 +47,11 @@
     "postcss": "^8.5.3",
     "postcss-selector-parser": "^7.1.0",
     "source-map-js": "^1.2.1"
-  }
+  },
+  "keywords": [
+    "vite",
+    "qingkuai",
+    "vite plugin",
+    "vite-plugin"
+  ]
 }
