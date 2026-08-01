@@ -1,7 +1,15 @@
 {
-    "tabWidth": 4,
-    "semi": false,
-    "printWidth": 120,
-    "arrowParens": "avoid",
-    "trailingComma": "none"
+  "tabWidth": 4,
+  "semi": false,
+  "printWidth": 120,
+  "arrowParens": "avoid",
+  "trailingComma": "none",
+  "overrides": [
+    {
+      "files": "*{.json,.prettierrc,.yaml,.yml}",
+      "options": {
+        "tabWidth": 2
+      }
+    }
+  ]
 }
