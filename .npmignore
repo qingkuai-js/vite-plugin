@@ -1,8 +1,11 @@
 .DS_Store
+.github
+.husky
 .gitignore
 .prettierrc
 
 src
+scripts
 node_modules
 sourcemap-test
 
