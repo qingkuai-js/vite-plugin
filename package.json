@@ -3,7 +3,7 @@
   "author": "mlgq",
   "license": "MIT",
   "type": "module",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "packageManager": "pnpm@9.9.0",
   "exports": {
     ".": {
