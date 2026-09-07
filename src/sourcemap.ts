@@ -4,14 +4,15 @@ import { decode } from "@jridgewell/sourcemap-codec"
 import { SourceMapConsumer } from "source-map-js"
 
 export function offsetSourceMap(
+    sourceIndices: number[],
     mappings: string,
-    sourceIndex: number,
     preLine: number,
     preColumn: number
 ): SourceMapMappings {
+    const indices = new Set(sourceIndices)
     return decode(mappings).map(line => {
         return line.map(segment => {
-            if (segment.length === 1 || segment[1] !== sourceIndex) {
+            if (segment.length === 1 || !indices.has(segment[1])) {
                 return segment
             }
             if (segment[2] === preLine) {

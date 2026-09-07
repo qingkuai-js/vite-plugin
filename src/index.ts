@@ -5,15 +5,16 @@ import type { InitOptions, QingkuaiConfiguration, SourceMap } from "./types"
 import * as vite from "vite"
 
 import nodeFs from "node:fs"
+import nodeUrl from "node:url"
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
-import { compile, isCompileError } from "qingkuai/compiler"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
-import { findFilesByName, isNumber, isUndefined } from "./util"
 import { attachScopeForStyleSelectors } from "./scope"
+import { compile, isCompileError } from "qingkuai/compiler"
 import { globalStyle, VIRTUAL_STYLE_ID_RE } from "./constants"
+import { findFilesByName, isNumber, isUndefined } from "./util"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 
 export default function qingkuai(options: InitOptions = {}): Plugin {
@@ -160,11 +161,13 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 }
                 return this.error(err)
             }
+            preprocessRes.deps?.forEach(dep => this.addWatchFile(dep))
 
             if (!cssSourcemap || styleDescriptor.global) {
                 return preprocessRes
             }
 
+            const phantomIndices: number[] = []
             const assertedPreprocessMap = preprocessRes.map as SourceMap | undefined
             const attachScopeResult = await attachScopeForStyleSelectors(
                 preprocessRes.code,
@@ -173,15 +176,43 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 assertedPreprocessMap
             )
             const attachScopeMap = attachScopeResult.map ?? assertedPreprocessMap
-            const samePath = (left: string, right: string) => {
-                return nodePath.normalize(left) === nodePath.normalize(right)
+
+            // sourcemap 的 sources 存在多种形态：预处理产物为绝对路径，postcss
+            // 会将其重塑为相对路径（基准可能是 process.cwd() 或虚拟文件所在
+            // 目录），还可能出现 file:// 形式——统一解析为绝对路径后再与虚拟
+            // 文件名比较，找出所有需要替换回真实 .qk 路径的幻影条目
+            //
+            // The sourcemap's sources come in multiple forms: the preprocessing
+            // result uses absolute paths, postcss re-bases them into relative
+            // paths (based on process.cwd() or the virtual file's directory),
+            // and file:// forms may also appear — resolve everything to
+            // absolute paths before comparing with the virtual file name to
+            // find every phantom entry that must be replaced with the real .qk
+            // path
+            const sameVirtualSource = (source: string) => {
+                let resolved = source.startsWith("file://") ? nodeUrl.fileURLToPath(source) : source
+                if (!nodePath.isAbsolute(resolved)) {
+                    const candidates = [
+                        nodePath.resolve(nodePath.dirname(virtualFileName), resolved),
+                        nodePath.resolve(resolved)
+                    ]
+                    return candidates.some(
+                        candidate => nodePath.normalize(candidate) === nodePath.normalize(virtualFileName)
+                    )
+                }
+                return nodePath.normalize(resolved) === nodePath.normalize(virtualFileName)
             }
-            const sourceIndex = attachScopeMap?.sources.findIndex(source => samePath(source, virtualFileName)) ?? -1
-            const currentSourceIndex = sourceIndex === -1 ? preprocessRes.deps?.size || 0 : sourceIndex
+
+            attachScopeMap?.sources.forEach((source, index) => {
+                if (sameVirtualSource(source)) {
+                    phantomIndices.push(index)
+                }
+            })
+
             const offsetMappings = encode(
                 offsetSourceMap(
+                    phantomIndices,
                     attachScopeResult.mappings,
-                    currentSourceIndex,
                     styleDescriptor.loc.start.line - 1,
                     styleDescriptor.loc.start.column - 1
                 )
@@ -195,7 +226,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                         attachScopeResult.error.loc.line,
                         attachScopeResult.error.loc.column
                     )
-                    if (preprocessedPosition.source && !samePath(preprocessedPosition.source, virtualFileName)) {
+                    if (preprocessedPosition.source && !sameVirtualSource(preprocessedPosition.source)) {
                         this.error({
                             message: attachScopeResult.error.message,
                             loc: {
@@ -227,24 +258,17 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                     version: 3,
                     mappings: offsetMappings,
                     names: attachScopeMap?.names || assertedPreprocessMap?.names || [],
-                    sources: attachScopeMap?.sources
-                        ? (() => {
-                              const sources = [...attachScopeMap.sources]
-                              if (currentSourceIndex !== -1) {
-                                  sources[currentSourceIndex] = fileId
-                              }
-                              return sources
-                          })()
-                        : [...(assertedPreprocessMap ? assertedPreprocessMap.sources.slice(0, -1) : []), fileId],
-                    sourcesContent: attachScopeMap?.sourcesContent
-                        ? (() => {
-                              const sourcesContent = [...attachScopeMap.sourcesContent]
-                              if (currentSourceIndex !== -1) {
-                                  sourcesContent[currentSourceIndex] = nodeFs.readFileSync(fileId, "utf-8")
-                              }
-                              return sourcesContent
-                          })()
-                        : undefined
+                    sources: attachScopeMap?.sources.map((source, index) => {
+                        return phantomIndices.includes(index) ? fileId : source
+                    }) ?? [
+                        ...(assertedPreprocessMap?.sources.filter(source => {
+                            return !sameVirtualSource(source)
+                        }) ?? []),
+                        fileId
+                    ],
+                    sourcesContent: attachScopeMap?.sourcesContent?.map((content, index) => {
+                        return phantomIndices.includes(index) ? nodeFs.readFileSync(fileId, "utf-8") : content
+                    })
                 }
             }
         },

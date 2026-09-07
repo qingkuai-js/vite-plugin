@@ -9,6 +9,7 @@ export default rollup.defineConfig(commentLineArgs => {
             "vite",
             "postcss",
             "node:fs",
+            "node:url",
             "node:path",
             "node:crypto",
             "source-map-js",
