@@ -23,10 +23,11 @@ export type InitOptions = Partial<{
 
 export type QingkuaiConfiguration = Partial<{
     maxScheduleDepth: number
+    allowConstReactive: boolean
     interpretiveComments: boolean
+    requireReactivityMark: boolean
     resolveImportExtension: boolean
-    shorthandDerivedDeclaration: boolean
     reactivityMode: "reactive" | "shallow"
     whitespace: "preserve" | "trim" | "collapse" | "trim-collapse"
-    preserveHtmlComments: "all" | "never" | "development" | "production"
+    preserveHtmlComments: "always" | "never" | "development" | "production"
 }>

@@ -317,14 +317,14 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
 
                 const transformWithOxc = (vite as any).transformWithOxc
                 const transformWithEsbuild = (vite as any).transformWithEsbuild
-                const tsCompileRes = await (transformWithOxc ?? transformWithEsbuild)(
+                const tsTransform = transformWithOxc ?? transformWithEsbuild
+                const tsCompileRes = await tsTransform(
                     compiledCode,
                     id,
                     {
                         sourcemap,
-                        lang: "ts",
-                        loader: "ts",
-                        target: "esnext"
+                        target: "esnext",
+                        [transformWithOxc ? "lang" : "loader"]: "ts"
                     },
                     sourcemap
                         ? {
@@ -436,9 +436,8 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
             interpretiveComments: isUndefined(qingkuaiConfig.interpretiveComments)
                 ? isDev
                 : !!qingkuaiConfig.interpretiveComments,
-            shorthandDerivedDeclaration: isUndefined(qingkuaiConfig.shorthandDerivedDeclaration)
-                ? true
-                : !!qingkuaiConfig.shorthandDerivedDeclaration,
+            allowConstReactive: qingkuaiConfig.allowConstReactive !== false,
+            requireReactivityMark: qingkuaiConfig.requireReactivityMark === true,
             reactivityMode: qingkuaiConfig.reactivityMode === "shallow" ? "shallow" : "reactive"
         }
         switch (qingkuaiConfig.whitespace) {
@@ -455,7 +454,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
             }
         }
         switch (qingkuaiConfig.preserveHtmlComments) {
-            case "all": {
+            case "always": {
                 ret.preserveHtmlComments = true
                 break
             }

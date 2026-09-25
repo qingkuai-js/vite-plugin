@@ -66,11 +66,11 @@ export async function attachScopeForStyleSelectors(
     ])
 
     const ret = await processor.process(code, {
-        from: sourceFile,
         map: {
-            prev: map,
-            annotation: false
-        }
+            annotation: false,
+            prev: map?.version ? map : undefined
+        },
+        from: sourceFile
     })
     const outputMap = ret.map?.toJSON()
     return {
