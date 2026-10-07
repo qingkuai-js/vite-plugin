@@ -357,9 +357,17 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 }
             } catch (err: any) {
                 if (isCompileError(err)) {
-                    this.error(err.message, err.loc.start.index)
+                    const location = new LinesAndColumns(src).locationForIndex(err.loc.start.index) || undefined
+                    this.error({
+                        loc: location && {
+                            file: id,
+                            line: location.line + 1,
+                            column: location.column
+                        },
+                        message: err.message
+                    })
                 } else if (err.cause && isNumber(err.cause.pos)) {
-                    this.error(err, err.cause.pos)
+                    this.error({ message: err.message })
                 } else {
                     this.error(
                         "Qingkuai compile result is invalid. Please report this at https://github.com/qingkuai-js/qingkuai/issues and include your .qk source for reproduction."
