@@ -38,7 +38,16 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
             isDev = env.command === "serve"
             return {
                 define: {
-                    __qk_max_schedule_depth: options.maxScheduleDepth
+                    // 开发期专用代码（警告与诊断信息）的开关，运行时据此决定是否保留警告
+                    // 调用及其文案。这里必须传布尔字面量：运行时用 `typeof` 判断取值，
+                    // 字符串 "false" 会被当成开发模式。
+                    // The switch for development-only code (warnings and diagnostics); the
+                    // runtime uses it to decide whether the warning calls and their message
+                    // text are kept. A boolean literal is required: the runtime checks the
+                    // value with `typeof`, so the string "false" would read as development
+                    // mode.
+                    __qk__dev: isDev,
+                    __qk__max_schedule_depth: options.maxScheduleDepth
                 }
             }
         },
