@@ -38,7 +38,8 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
             isDev = env.command === "serve"
             return {
                 define: {
-                    __qk_max_schedule_depth: options.maxScheduleDepth
+                    __qk__dev: isDev,
+                    __qk__max_schedule_depth: options.maxScheduleDepth
                 }
             }
         },
