@@ -12,10 +12,10 @@ import nodeCrypto from "node:crypto"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { attachScopeForStyleSelectors } from "./scope"
-import { compile, isCompileError } from "qingkuai/compiler"
 import { globalStyle, VIRTUAL_STYLE_ID_RE } from "./constants"
 import { findFilesByName, isNumber, isUndefined } from "./util"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
+import { ReactivityMode, WhitespaceMode, compile, isCompileError } from "qingkuai/compiler"
 
 export default function qingkuai(options: InitOptions = {}): Plugin {
     let isDev: boolean
@@ -447,18 +447,24 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 : !!qingkuaiConfig.interpretiveComments,
             allowConstReactive: qingkuaiConfig.allowConstReactive !== false,
             requireReactivityMark: qingkuaiConfig.requireReactivityMark === true,
-            reactivityMode: qingkuaiConfig.reactivityMode === "shallow" ? "shallow" : "reactive"
+            reactivityMode:
+                qingkuaiConfig.reactivityMode === "shallow" ? ReactivityMode.Shallow : ReactivityMode.Reactive
         }
         switch (qingkuaiConfig.whitespace) {
-            case "trim":
-            case "collapse":
-            case "preserve":
-            case "trim-collapse": {
-                ret.whitespace = qingkuaiConfig.whitespace
+            case "trim": {
+                ret.whitespace = WhitespaceMode.Trim
+                break
+            }
+            case "collapse": {
+                ret.whitespace = WhitespaceMode.Collapse
+                break
+            }
+            case "preserve": {
+                ret.whitespace = WhitespaceMode.Preserve
                 break
             }
             default: {
-                ret.whitespace = "trim-collapse"
+                ret.whitespace = WhitespaceMode.TrimCollapse
                 break
             }
         }
