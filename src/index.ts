@@ -10,10 +10,10 @@ import nodeUrl from "node:url"
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
-import { isNumber, isUndefined } from "./util"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { attachScopeForStyleSelectors } from "./scope"
+import { isNumber, isUndefined, normalizePath } from "./util"
 import { globalStyle, VIRTUAL_STYLE_ID_RE } from "./constants"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 import { ReactivityMode, WhitespaceMode, compile, isCompileError } from "qingkuai/compiler"
@@ -102,9 +102,8 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
             }
             if (importer?.endsWith(".qk") && !nodePath.extname(id)) {
                 const qingkuaiConfig = getQingkuaiConfig(importer)
-                return nodePath.join(
-                    nodePath.dirname(importer),
-                    id + (qingkuaiConfig.resolveImportExtension ? ".qk" : "")
+                return normalizePath(
+                    nodePath.join(nodePath.dirname(importer), id + (qingkuaiConfig.resolveImportExtension ? ".qk" : ""))
                 )
             }
             return id
@@ -297,7 +296,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
         },
 
         async transform(src, id) {
-            if (!id.endsWith(".qk")) {
+            if (!(id = normalizePath(id)).endsWith(".qk")) {
                 return
             }
 

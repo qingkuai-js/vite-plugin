@@ -1,3 +1,7 @@
+export function normalizePath(path: string) {
+    return path.replaceAll("\\", "/")
+}
+
 export function isNull(v: any): v is null {
     return null === v
 }
