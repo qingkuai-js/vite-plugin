@@ -17,6 +17,11 @@ export interface PostcssPluginError {
     }
 }
 
+export interface PackageManifest {
+    version?: string
+    [key: string]: unknown
+}
+
 export type InitOptions = Partial<{
     maxScheduleDepth: number
 }>

@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+import type { PackageManifest } from "../src/types"
+
 import nodeFs from "node:fs"
 import nodePath from "node:path"
 
@@ -7,15 +8,15 @@ import { spawnSync } from "node:child_process"
 const ROOT = nodePath.resolve(process.cwd())
 const PKG_PATH = nodePath.join(ROOT, "package.json")
 
-function readPackageJson() {
-    return JSON.parse(nodeFs.readFileSync(PKG_PATH, "utf-8"))
+function readPackageJson(): PackageManifest {
+    return JSON.parse(nodeFs.readFileSync(PKG_PATH, "utf-8")) as PackageManifest
 }
 
-function writePackageJson(pkg) {
+function writePackageJson(pkg: PackageManifest): void {
     nodeFs.writeFileSync(PKG_PATH, JSON.stringify(pkg, null, 2) + "\n", "utf-8")
 }
 
-function bumpVersion(version) {
+function bumpVersion(version: string): string {
     const parts = version.split(".").map(Number)
     if (parts.length !== 3 || parts.some(n => Number.isNaN(n) || n < 0)) {
         throw new Error(`Unsupported version format: ${version}`)
@@ -24,18 +25,17 @@ function bumpVersion(version) {
     return parts.join(".")
 }
 
-async function run(command, args, opts = {}) {
-    const result = spawnSync(command, args, { stdio: "inherit", ...opts })
+function run(command: string, args: string[]): void {
+    const result = spawnSync(command, args, { stdio: "inherit" })
     if (result.error) {
         throw result.error
     }
     if (result.status !== 0) {
         throw new Error(`Command failed: ${command} ${args.join(" ")}`)
     }
-    return result
 }
 
-function verifyCleanWorkingTree() {
+function verifyCleanWorkingTree(): void {
     const result = spawnSync("git", ["status", "--porcelain"], {
         encoding: "utf-8",
         stdio: ["ignore", "pipe", "inherit"]
@@ -47,11 +47,11 @@ function verifyCleanWorkingTree() {
         throw new Error("Failed to check git working tree status")
     }
     if (result.stdout.trim()) {
-        throw new Error("Git working tree is not clean. Please commit or stash your changes before releasing.")
+        throw new Error("Git working tree is not clean. Commit or stash your changes before releasing.")
     }
 }
 
-async function release() {
+function release(): void {
     verifyCleanWorkingTree()
     const pkg = readPackageJson()
     const currentVersion = pkg.version
@@ -71,18 +71,18 @@ async function release() {
     pkg.version = newVersion
     writePackageJson(pkg)
 
-    await run("git", ["add", "package.json"])
-    await run("git", ["commit", "-m", `release: bump version to ${tag}`])
-    await run("git", ["tag", tag])
-    await run("git", ["push"])
-    await run("git", ["push", "origin", tag])
+    run("git", ["add", "package.json"])
+    run("git", ["commit", "-m", `release: bump version to ${tag}`])
+    run("git", ["tag", tag])
+    run("git", ["push"])
+    run("git", ["push", "origin", tag])
 
     console.log(`Released ${tag}`)
 }
 
-async function main() {
+function main(): void {
     try {
-        await release()
+        release()
     } catch (error) {
         console.error(error instanceof Error ? error.message : error)
         process.exit(1)
