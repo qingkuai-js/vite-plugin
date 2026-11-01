@@ -1,15 +1,11 @@
 {
-    "compilerOptions": {
-        "strict": true,
-        "rootDir": "src",
-        "module": "ESNext",
-        "target": "ESNext",
-        "declaration": true,
-        "skipLibCheck": true,
-        "outDir": "dist/temp-types",
-        "emitDeclarationOnly": true,
-        "moduleResolution": "bundler"
-    },
-    "include": ["src", "sourcemap-test/create-sourcemap-files.ts"],
-    "exclude": ["sourcemap-test/create-sourcemap-files.ts"]
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "target": "ESNext",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler"
+  },
+  "include": ["src", "tests", "vitest.config.ts"]
 }

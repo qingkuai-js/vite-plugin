@@ -5,12 +5,15 @@
 .prettierrc
 
 src
+tests
 scripts
 node_modules
 sourcemap-test
 
 tsconfig.json
+tsconfig.build.json
 pnpm-lock.yaml
 rollup.config.js
+vitest.config.ts
 dist/index.js.map
 vite-plugin-qingkuai-*.tgz

@@ -20,14 +20,3 @@ export interface PostcssPluginError {
 export type InitOptions = Partial<{
     maxScheduleDepth: number
 }>
-
-export type QingkuaiConfiguration = Partial<{
-    maxScheduleDepth: number
-    allowConstReactive: boolean
-    interpretiveComments: boolean
-    requireReactivityMark: boolean
-    resolveImportExtension: boolean
-    reactivityMode: "reactive" | "shallow"
-    whitespace: "preserve" | "trim" | "collapse" | "trim-collapse"
-    preserveHtmlComments: "always" | "never" | "development" | "production"
-}>

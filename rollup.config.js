@@ -18,7 +18,8 @@ export default rollup.defineConfig(commentLineArgs => {
             "qingkuai/compiler",
             "@ampproject/remapping",
             "postcss-selector-parser",
-            "@jridgewell/sourcemap-codec"
+            "@jridgewell/sourcemap-codec",
+            "qingkuai-language-service/config"
         ],
         input: {
             index: "./src/index.ts"

@@ -22,8 +22,10 @@
   },
   "scripts": {
     "dev": "rollup -c -w",
+    "test": "vitest --run",
     "release": "node scripts/release.js",
-    "build": "rimraf dist && tsc && rollup -c && rimraf dist/temp-types",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "rimraf dist && tsc -p tsconfig.build.json && rollup -c && rimraf dist/temp-types",
     "postpublish": "curl -X PUT 'https://registry-direct.npmmirror.com/-/package/vite-plugin-qingkuai/syncs'"
   },
   "devDependencies": {
@@ -37,7 +39,9 @@
     "rollup": "^4.38.0",
     "rollup-plugin-dts": "^6.2.1",
     "rollup-plugin-esbuild": "^6.2.1",
-    "vite": "8.0.0"
+    "typescript": "^6.0.3",
+    "vite": "8.3.5",
+    "vitest": "4.1.10"
   },
   "peerDependencies": {
     "qingkuai": ">=1.0.104",
@@ -48,6 +52,7 @@
     "lines-and-columns": "^2.0.4",
     "postcss": "^8.5.3",
     "postcss-selector-parser": "^7.1.0",
+    "qingkuai-language-service": "^1.0.23",
     "source-map-js": "^1.2.1"
   },
   "keywords": [

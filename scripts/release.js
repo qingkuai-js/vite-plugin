@@ -7,8 +7,6 @@ import { spawnSync } from "node:child_process"
 const ROOT = nodePath.resolve(process.cwd())
 const PKG_PATH = nodePath.join(ROOT, "package.json")
 
-main()
-
 function readPackageJson() {
     return JSON.parse(nodeFs.readFileSync(PKG_PATH, "utf-8"))
 }
@@ -49,9 +47,7 @@ function verifyCleanWorkingTree() {
         throw new Error("Failed to check git working tree status")
     }
     if (result.stdout.trim()) {
-        throw new Error(
-            "Git working tree is not clean. Please commit or stash your changes before releasing."
-        )
+        throw new Error("Git working tree is not clean. Please commit or stash your changes before releasing.")
     }
 }
 
@@ -92,3 +88,5 @@ async function main() {
         process.exit(1)
     }
 }
+
+main()

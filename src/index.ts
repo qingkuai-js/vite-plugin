@@ -1,6 +1,7 @@
-import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
 import type { CompileOptions, CompileResult } from "qingkuai/compiler"
-import type { InitOptions, QingkuaiConfiguration, SourceMap } from "./types"
+import type { Logger, Plugin, ResolvedConfig, ViteDevServer } from "vite"
+import type { ConfigParsingMessage } from "qingkuai-language-service/config"
+import type { InitOptions, SourceMap } from "./types"
 
 import * as vite from "vite"
 
@@ -9,13 +10,14 @@ import nodeUrl from "node:url"
 import nodePath from "node:path"
 import nodeCrypto from "node:crypto"
 
+import { isNumber, isUndefined } from "./util"
 import { LinesAndColumns } from "lines-and-columns"
 import { encode } from "@jridgewell/sourcemap-codec"
 import { attachScopeForStyleSelectors } from "./scope"
 import { globalStyle, VIRTUAL_STYLE_ID_RE } from "./constants"
-import { findFilesByName, isNumber, isUndefined } from "./util"
 import { getOriginalPosition, offsetSourceMap } from "./sourcemap"
 import { ReactivityMode, WhitespaceMode, compile, isCompileError } from "qingkuai/compiler"
+import { ConfigParsingMessageKind, createConfigResolver } from "qingkuai-language-service/config"
 
 export default function qingkuai(options: InitOptions = {}): Plugin {
     let isDev: boolean
@@ -23,9 +25,30 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
     let cssSourcemap: boolean
     let viteConfig: ResolvedConfig
 
-    const parseFailedConfigFiles: string[] = []
+    const reportedConfigMessages = new Set<string>()
     const compileResultCache = new Map<string, CompileResult>()
-    const qingkuaiConfigurations = new Map<string, QingkuaiConfiguration>()
+
+    const configResolver = createConfigResolver(
+        {
+            read: filePath => {
+                return nodeFs.readFileSync(filePath, "utf-8")
+            },
+            exist: filePath => {
+                return nodeFs.existsSync(filePath)
+            }
+        },
+        {
+            dir: filePath => {
+                return nodePath.resolve(nodePath.dirname(filePath))
+            },
+            resolve: (...segments) => {
+                return nodePath.resolve(...segments)
+            },
+            ext: nodePath.extname,
+            base: nodePath.basename,
+            relative: nodePath.relative
+        }
+    )
 
     if (isUndefined(options.maxScheduleDepth)) {
         options.maxScheduleDepth = 300
@@ -58,8 +81,6 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 cssSourcemap = true
                 sourcemap = config.build.sourcemap !== false
             }
-
-            loadAllQingkuaiConfigurations(config.root)
         },
 
         transformIndexHtml(html) {
@@ -80,7 +101,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
                 return id
             }
             if (importer?.endsWith(".qk") && !nodePath.extname(id)) {
-                const qingkuaiConfig = getQingkuaiConfiguration(id)
+                const qingkuaiConfig = getQingkuaiConfig(importer)
                 return nodePath.join(
                     nodePath.dirname(importer),
                     id + (qingkuaiConfig.resolveImportExtension ? ".qk" : "")
@@ -103,6 +124,7 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
             const compileRes = compileResultCache.get(fileId)!
             const styleDescriptor = compileRes.styleDescriptors[index]
 
+            // 生成一个相对路径且不存在的文件名
             // create a relative and not existing file name
             while (true) {
                 const hash = nodeCrypto.randomBytes(6).toString("hex")
@@ -378,69 +400,54 @@ export default function qingkuai(options: InitOptions = {}): Plugin {
         }
     }
 
-    function getQingkuaiConfiguration(id: string) {
-        let config: QingkuaiConfiguration = {
-            interpretiveComments: true,
-            resolveImportExtension: true,
-            preserveHtmlComments: "development"
-        }
-        while (true) {
-            const dir = nodePath.dirname(id)
-            if (dir === id) {
-                break
-            }
+    function getQingkuaiConfig(filePath: string) {
+        return configResolver.resolve(filePath, (configPath, message) => {
+            reportConfigMessage(viteConfig.logger, configPath, message)
+        })
+    }
 
-            const got = qingkuaiConfigurations.get((id = dir))
-            if (got) {
-                config = got
-                break
+    function reportConfigMessage(logger: Logger, filePath: string, message: ConfigParsingMessage) {
+        // 同一份配置会在每个组件目录下各解析一次，按配置文件路径与消息内容去重
+        // A config file is resolved once per component directory, so dedupe by path and message
+        const key = `${filePath}\0${message.value}`
+        if (reportedConfigMessages.has(key)) {
+            return
+        }
+        reportedConfigMessages.add(key)
+
+        const reason =
+            message.kind === ConfigParsingMessageKind.Error
+                ? "Failed to parse configuration file"
+                : "Configuration file"
+        logger.warn(`[qingkuai] ${reason} ${filePath}: ${message.value}`)
+    }
+
+    function forgetConfigMessages(configPath: string) {
+        const prefix = `${configPath}\0`
+        for (const key of reportedConfigMessages) {
+            if (key.startsWith(prefix)) {
+                reportedConfigMessages.delete(key)
             }
         }
-        return config
     }
 
     function createQingkuaiConfigurationWatcher(server: ViteDevServer) {
         const watcher = server.watcher
-        const isQingkuaiConfig = (filePath: string) => {
-            return (
-                nodePath.basename(filePath) === ".qingkuairc" &&
-                !filePath.includes(`${nodePath.sep}node_modules${nodePath.sep}`)
-            )
+        const handleFileChange = (filePath: string) => {
+            for (const configPath of configResolver.removeCacheByPath(filePath)) {
+                forgetConfigMessages(configPath)
+                configResolver.resolve(configPath, (path, message) => {
+                    reportConfigMessage(server.config.logger, path, message)
+                })
+            }
         }
-
-        watcher.on("unlink", filePath => {
-            if (isQingkuaiConfig(filePath)) {
-                qingkuaiConfigurations.delete(nodePath.dirname(filePath))
-            }
-        })
-        watcher.on("change", filePath => {
-            if (isQingkuaiConfig(filePath)) {
-                recordQingkuaiConfiguration(filePath)
-            }
-        })
-        watcher.on("add", filePath => {
-            if (isQingkuaiConfig(filePath)) {
-                recordQingkuaiConfiguration(filePath)
-            }
-        })
-    }
-
-    function loadAllQingkuaiConfigurations(workspaceDir: string) {
-        findFilesByName(workspaceDir, ".qingkuairc", new Set(["node_modules"])).forEach(fileName => {
-            recordQingkuaiConfiguration(fileName)
-        })
-    }
-
-    function recordQingkuaiConfiguration(fileName: string) {
-        try {
-            qingkuaiConfigurations.set(nodePath.dirname(fileName), JSON.parse(nodeFs.readFileSync(fileName, "utf-8")))
-        } catch {
-            parseFailedConfigFiles.push(fileName)
-        }
+        watcher.on("change", handleFileChange)
+        watcher.on("add", handleFileChange)
+        watcher.on("unlink", handleFileChange)
     }
 
     function getCompileOptions(id: string) {
-        const qingkuaiConfig = getQingkuaiConfiguration(id)
+        const qingkuaiConfig = getQingkuaiConfig(id)
         const ret: CompileOptions = {
             interpretiveComments: isUndefined(qingkuaiConfig.interpretiveComments)
                 ? isDev
